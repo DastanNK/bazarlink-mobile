@@ -38,6 +38,30 @@ class AppLocalizations {
   String get profile => _t(kk: 'Профиль', ru: 'Профиль', en: 'Profile');
   String get chat => _t(kk: 'Чат', ru: 'Чат', en: 'Chat');
 
+  String get search => _t(kk: 'Іздеу', ru: 'Поиск', en: 'Search');
+  String get allCategories => _t(kk: 'Барлығы', ru: 'Все', en: 'All');
+  String get vegetables => _t(kk: 'Көкөністер', ru: 'Овощи', en: 'Vegetables');
+  String get fruits => _t(kk: 'Жемістер', ru: 'Фрукты', en: 'Fruits');
+  String get meat => _t(kk: 'Ет', ru: 'Мясо', en: 'Meat');
+  String get dairy => _t(kk: 'Сүт өнімдері', ru: 'Молочные продукты', en: 'Dairy');
+  String get order => _t(kk: 'Тапсырыс', ru: 'Заказ', en: 'Order');
+  String get addToCart => _t(kk: 'Себетке қосу', ru: 'В корзину', en: 'Add to Cart');
+  String get description => _t(kk: 'Сипаттама', ru: 'Описание', en: 'Description');
+  String get price => _t(kk: 'Баға', ru: 'Цена', en: 'Price');
+  String get stock => _t(kk: 'Қор', ru: 'Наличие', en: 'Stock');
+  String get minOrder => _t(kk: 'Минималды тапсырыс', ru: 'Минимальный заказ', en: 'Min Order');
+  String get delivery => _t(kk: 'Жеткізу', ru: 'Доставка', en: 'Delivery');
+  String get pickup => _t(kk: 'Алу', ru: 'Самовывоз', en: 'Pickup');
+  String get leadTime => _t(kk: 'Жеткізу мерзімі', ru: 'Срок доставки', en: 'Lead Time');
+  String get days => _t(kk: 'күн', ru: 'дней', en: 'days');
+  String get requestLink => _t(kk: 'Байланыс сұрау', ru: 'Запросить связь', en: 'Request Link');
+  String get available => _t(kk: 'Қолжетімді', ru: 'Доступно', en: 'Available');
+  String get notAvailable => _t(kk: 'Қолжетімсіз', ru: 'Недоступно', en: 'Not Available');
+  String get orderCreated => _t(kk: 'Тапсырыс жасалды', ru: 'Заказ создан', en: 'Order Created');
+  String get linkRequested => _t(kk: 'Байланыс сұралды', ru: 'Связь запрошена', en: 'Link Requested');
+  String get linkSupplier => _t(kk: 'Жеткізушіге байланыс', ru: 'Связаться с поставщиком', en: 'Link Supplier');
+  String get suppliers => _t(kk: 'Жеткізушілер', ru: 'Поставщики', en: 'Suppliers');
+
   String _t({required String kk, required String ru, required String en}) {
     switch (language) {
       case AppLanguage.kk:

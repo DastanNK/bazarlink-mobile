@@ -29,7 +29,7 @@ class SCPApp extends StatelessWidget {
             title: 'SCP',
             theme: ThemeData(
               useMaterial3: true,
-              colorSchemeSeed: Colors.blueGrey,
+              colorSchemeSeed: Colors.green,
             ),
             onGenerateRoute: AppRouter.onGenerateRoute,
             initialRoute: AppRouter.languageSelection,
