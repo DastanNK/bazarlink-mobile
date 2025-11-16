@@ -61,6 +61,9 @@ class AppLocalizations {
   String get linkRequested => _t(kk: 'Байланыс сұралды', ru: 'Связь запрошена', en: 'Link Requested');
   String get linkSupplier => _t(kk: 'Жеткізушіге байланыс', ru: 'Связаться с поставщиком', en: 'Link Supplier');
   String get suppliers => _t(kk: 'Жеткізушілер', ru: 'Поставщики', en: 'Suppliers');
+  String get goToCart => _t(kk: 'Себетке өту', ru: 'Перейти в корзину', en: 'Go to Cart');
+  String get seeCart => _t(kk: 'Себетті көру', ru: 'Посмотреть корзину', en: 'See Cart');
+  String get cartTotal => _t(kk: 'Жалпы сома', ru: 'Общая сумма', en: 'Total');
 
   String _t({required String kk, required String ru, required String en}) {
     switch (language) {

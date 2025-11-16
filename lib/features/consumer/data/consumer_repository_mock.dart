@@ -179,6 +179,40 @@ class MockConsumerRepository implements ConsumerRepository {
         leadTimeDays: 1,
       ),
     ],
+    5: [
+      Supplier(
+        id: 1,
+        name: 'Best Meat Supplier',
+        code: 'BMS001',
+        description: 'Premium quality beef, fresh and tender',
+        price: 2000,
+        discountPrice: 1800,
+        currency: 'KZT',
+        stockQuantity: 40,
+        unit: 'kg',
+        minOrderQuantity: 3,
+        deliveryAvailability: true,
+        pickupAvailability: true,
+        leadTimeDays: 1,
+      ),
+    ],
+    6: [
+      Supplier(
+        id: 3,
+        name: 'VeggieLand',
+        code: 'VL001',
+        description: 'Fresh local carrots, crisp and sweet',
+        price: 400,
+        discountPrice: null,
+        currency: 'KZT',
+        stockQuantity: 150,
+        unit: 'kg',
+        minOrderQuantity: 2,
+        deliveryAvailability: true,
+        pickupAvailability: true,
+        leadTimeDays: 0,
+      ),
+    ],
   };
 
   final List<Complaint> _complaints = [

@@ -1,9 +1,11 @@
 // lib/features/consumer/presentation/pages/catalog_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
 import '../../domain/entities/consumer_models.dart';
+import '../cart_provider.dart';
 import 'product_detail_page.dart';
 import 'links_page.dart';
 
@@ -202,46 +204,96 @@ class _CatalogPageState extends State<CatalogPage> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        // Search Bar
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: l10n.search,
-              prefixIcon: Icon(Icons.search, color: Colors.green[700]),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: theme.colorScheme.onSurface),
-                      onPressed: () {
-                        _searchController.clear();
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-          ),
-        ),
+    return Consumer<CartProvider>(
+      builder: (context, cartProvider, _) {
+        final hasCartItems = cartProvider.itemCount > 0;
+        final cartTotal = cartProvider.totalPrice;
+        final firstItem = cartProvider.items.isNotEmpty ? cartProvider.items.first : null;
+        final currency = firstItem?.currency ?? 'KZT';
 
-        // Supplier List
+        return Column(
+          children: [
+            // Search Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: l10n.search,
+                  prefixIcon: Icon(Icons.search, color: Colors.green[700]),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.clear, color: theme.colorScheme.onSurface),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+
+            // Cart Summary Bar
+            if (hasCartItems)
+              InkWell(
+                onTap: () {
+                  // Navigate to cart/orders page
+                  // For now, just show a message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${l10n.seeCart} - ${cartProvider.itemCount} items'),
+                      backgroundColor: Colors.green[700],
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    border: Border(
+                      bottom: BorderSide(color: Colors.green[200]!, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shopping_cart, color: Colors.green[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${l10n.cartTotal}: ${cartTotal.toStringAsFixed(0)} $currency',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green[900],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(Icons.arrow_forward, color: Colors.green[700]),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Supplier List
         Container(
           height: 70,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -363,6 +415,7 @@ class _CatalogPageState extends State<CatalogPage> {
                       onSelected: (_) => _handleCategorySelection(category),
                       selectedColor: Colors.green[100],
                       backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                      showCheckmark: false,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.green[900] : theme.colorScheme.onSurface,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -423,7 +476,9 @@ class _CatalogPageState extends State<CatalogPage> {
                           },
                         ),
         ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -506,59 +561,45 @@ class _CatalogPageState extends State<CatalogPage> {
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (product.discountPrice != null) ...[
-                                Text(
-                                  '${product.price.toStringAsFixed(0)} ${product.currency}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    decoration: TextDecoration.lineThrough,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                  ),
-                                ),
-                                Text(
-                                  '${product.discountPrice!.toStringAsFixed(0)} ${product.currency}',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.green[700],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ] else
-                                Text(
-                                  '${product.price.toStringAsFixed(0)} ${product.currency}',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.green[700],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              Text(
-                                '/ ${product.unit}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                ),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (product.discountPrice != null) ...[
+                            Text(
+                              '${product.price.toStringAsFixed(0)} ${product.currency}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                fontSize: 11,
                               ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.green[700],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                            onPressed: () => _navigateToProductDetail(product),
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(),
-                          ),
-                        ),
-                      ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '${product.discountPrice!.toStringAsFixed(0)} ${product.currency} / ${product.unit}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ] else
+                            Text(
+                              '${product.price.toStringAsFixed(0)} ${product.currency} / ${product.unit}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

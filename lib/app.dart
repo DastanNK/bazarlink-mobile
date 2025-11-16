@@ -8,6 +8,7 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/auth_repository_mock.dart';
 import 'features/consumer/data/consumer_repository.dart';
 import 'features/consumer/data/consumer_repository_mock.dart';
+import 'features/consumer/presentation/cart_provider.dart';
 import 'features/sales/data/sales_repository.dart';
 import 'features/sales/data/sales_repository_mock.dart';
 
@@ -19,6 +20,7 @@ class SCPApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LocalizationProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
         Provider<AuthRepository>(create: (_) => MockAuthRepository()),
         Provider<ConsumerRepository>(create: (_) => MockConsumerRepository()),
         Provider<SalesRepository>(create: (_) => MockSalesRepository()),

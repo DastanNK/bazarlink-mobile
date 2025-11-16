@@ -1,9 +1,12 @@
 // lib/features/consumer/presentation/pages/product_detail_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
 import '../../domain/entities/consumer_models.dart';
+import '../../domain/entities/cart_item.dart';
+import '../cart_provider.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
@@ -64,9 +67,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
 
     final linked = await widget.repository.isLinkedToSupplier(_supplier!.code);
+    
+    // Check if product is already in cart
+    final cartProvider = context.read<CartProvider>();
+    final cartItems = cartProvider.items.where(
+      (item) => item.productId == widget.product.id && item.supplierCode == _supplier!.code,
+    ).toList();
+    
     setState(() {
       _isLinked = linked;
       _isCheckingLink = false;
+      // Restore quantity and stepper state from cart
+      if (cartItems.isNotEmpty && cartItems.first.quantity > 0) {
+        _quantity = cartItems.first.quantity;
+        _showStepper = true; // Always show stepper if item is in cart
+      }
     });
   }
 
@@ -89,20 +104,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Future<void> _handleOrder() async {
     if (_supplier == null || !_isLinked) return;
 
-    await widget.repository.createOrder(
-      widget.product,
-      quantity: _quantity,
+    final cartProvider = context.read<CartProvider>();
+    final cartItem = CartItem(
+      productId: widget.product.id,
+      productName: widget.product.name,
       supplierId: _supplier!.id,
+      supplierCode: _supplier!.code,
+      price: _supplier!.price,
+      discountPrice: _supplier!.discountPrice,
+      currency: _supplier!.currency,
+      unit: _supplier!.unit,
+      quantity: _quantity,
     );
     
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${context.l10n.orderCreated}: ${widget.product.name} x$_quantity'),
-        backgroundColor: Colors.green[700],
-      ),
-    );
+    cartProvider.addItem(cartItem);
     
     setState(() {
       _showStepper = true;
@@ -110,21 +125,41 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   void _incrementQuantity() {
-    if (_supplier == null) return;
+    if (_supplier == null || !_isLinked) return;
     setState(() {
       _quantity++;
     });
+    _updateCartQuantity();
   }
 
   void _decrementQuantity() {
     setState(() {
       if (_quantity > 1) {
         _quantity--;
+        _updateCartQuantity();
       } else {
+        // If quantity is 1 and we try to decrease, remove from cart and hide stepper
         _quantity = 1;
         _showStepper = false;
+        _removeFromCart();
       }
     });
+  }
+
+  void _updateCartQuantity() {
+    if (_supplier == null || !_isLinked) return;
+    final cartProvider = context.read<CartProvider>();
+    cartProvider.updateQuantity(
+      widget.product.id,
+      _supplier!.code,
+      _quantity,
+    );
+  }
+
+  void _removeFromCart() {
+    if (_supplier == null) return;
+    final cartProvider = context.read<CartProvider>();
+    cartProvider.removeItem(widget.product.id, _supplier!.code);
   }
 
   @override
@@ -414,55 +449,73 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   ),
                                 )
                               else
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.green[200]!,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Quantity',
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
+                                Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.green[200]!,
+                                          width: 1,
                                         ),
                                       ),
-                                      Row(
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          IconButton(
-                                            onPressed: _decrementQuantity,
-                                            icon: const Icon(Icons.remove_circle_outline),
-                                            color: Colors.green[700],
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green[50],
-                                              borderRadius: BorderRadius.circular(8),
+                                          Text(
+                                            'Quantity',
+                                            style: theme.textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            child: Text(
-                                              '$_quantity',
-                                              style: theme.textTheme.titleLarge?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green[900],
+                                          ),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                onPressed: _decrementQuantity,
+                                                icon: const Icon(Icons.remove_circle_outline),
+                                                color: Colors.green[700],
                                               ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            onPressed: _incrementQuantity,
-                                            icon: const Icon(Icons.add_circle_outline),
-                                            color: Colors.green[700],
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green[50],
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  '$_quantity',
+                                                  style: theme.textTheme.titleLarge?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.green[900],
+                                                  ),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                onPressed: _incrementQuantity,
+                                                icon: const Icon(Icons.add_circle_outline),
+                                                color: Colors.green[700],
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    FilledButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      icon: const Icon(Icons.shopping_cart),
+                                      label: Text(l10n.goToCart),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.green[700],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        minimumSize: const Size(double.infinity, 50),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ],
