@@ -505,7 +505,7 @@ class _CatalogPageState extends State<CatalogPage> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
-                            childAspectRatio: 0.75,
+                            childAspectRatio: 0.65,
                           ),
                           itemCount: _displayProducts.length,
                           itemBuilder: (context, index) {
