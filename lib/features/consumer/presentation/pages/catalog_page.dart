@@ -37,10 +37,37 @@ class _CatalogPageState extends State<CatalogPage> {
     _linkedSuppliersFuture = widget.repository.getLinkedSuppliers();
     _loadAllProducts();
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
+      final newQuery = _searchController.text.toLowerCase();
+      if (newQuery != _searchQuery) {
+        setState(() {
+          _searchQuery = newQuery;
+        });
+        _handleSearchChange();
+      }
     });
+  }
+
+  Future<void> _handleSearchChange() async {
+    // When searching, hide category selection and reload products
+    if (_searchQuery.isNotEmpty) {
+      setState(() {
+        _selectedCategory = null;
+      });
+      
+      if (_selectedSupplierCode != null) {
+        // Load all products from selected supplier (no category filter)
+        await _loadFilteredProducts(_selectedSupplierCode!);
+      }
+      // If "All" is selected, _filteredProducts is already _allProducts
+    } else {
+      // When search is cleared, restore category selection if supplier is selected
+      if (_selectedSupplierCode != null && _categories.isNotEmpty) {
+        setState(() {
+          _selectedCategory = _categories.first;
+        });
+        await _loadFilteredProducts(_selectedSupplierCode!, category: _categories.first);
+      }
+    }
   }
 
   @override
@@ -105,8 +132,8 @@ class _CatalogPageState extends State<CatalogPage> {
     // Load categories for this supplier
     final categories = await widget.repository.getCategoriesForSupplier(supplierCode);
     
-    // Select first category by default
-    final firstCategory = categories.isNotEmpty ? categories.first : null;
+    // Only select first category if not searching
+    final firstCategory = _searchQuery.isEmpty && categories.isNotEmpty ? categories.first : null;
     
     setState(() {
       _categories = categories;
@@ -114,8 +141,13 @@ class _CatalogPageState extends State<CatalogPage> {
       _isLoadingCategories = false;
     });
 
-    // Load products for this supplier and category
-    await _loadFilteredProducts(supplierCode, category: firstCategory);
+    // Load products for this supplier and category (only if not searching)
+    if (_searchQuery.isEmpty) {
+      await _loadFilteredProducts(supplierCode, category: firstCategory);
+    } else {
+      // If searching, load all products from this supplier (no category filter)
+      await _loadFilteredProducts(supplierCode);
+    }
   }
 
   Future<void> _handleCategorySelection(String category) async {
@@ -126,7 +158,13 @@ class _CatalogPageState extends State<CatalogPage> {
       _isLoadingFilteredProducts = true;
     });
 
-    await _loadFilteredProducts(_selectedSupplierCode!, category: category);
+    // Only filter by category if not searching
+    if (_searchQuery.isEmpty) {
+      await _loadFilteredProducts(_selectedSupplierCode!, category: category);
+    } else {
+      // If searching, load all products from supplier (search will filter them)
+      await _loadFilteredProducts(_selectedSupplierCode!);
+    }
   }
 
   Future<void> _loadFilteredProducts(String supplierCode, {String? category}) async {
@@ -388,8 +426,8 @@ class _CatalogPageState extends State<CatalogPage> {
           ),
         ),
 
-        // Category Section (only shown when a specific supplier is selected)
-        if (_selectedSupplierCode != null) ...[
+        // Category Section (only shown when a specific supplier is selected and not searching)
+        if (_selectedSupplierCode != null && _searchQuery.isEmpty) ...[
           if (_isLoadingCategories)
             const Center(child: Padding(
               padding: EdgeInsets.all(16.0),
@@ -561,46 +599,86 @@ class _CatalogPageState extends State<CatalogPage> {
                         ),
                       ],
                     ),
-                    Flexible(
-                      child: Column(
+                    // Price section - restructured to prevent overflow
+                    if (product.discountPrice != null)
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (product.discountPrice != null) ...[
-                            Text(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${product.discountPrice!.toStringAsFixed(0)} ${product.currency}',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: Colors.green[700],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  '/ ${product.unit}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${product.price.toStringAsFixed(0)} ${product.currency}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              decoration: TextDecoration.lineThrough,
+                              color: theme.colorScheme.onSurface.withOpacity(0.5),
+                              fontSize: 10,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Text(
                               '${product.price.toStringAsFixed(0)} ${product.currency}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                decoration: TextDecoration.lineThrough,
-                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              '/ ${product.unit}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.7),
                                 fontSize: 11,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            Text(
-                              '${product.discountPrice!.toStringAsFixed(0)} ${product.currency} / ${product.unit}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ] else
-                            Text(
-                              '${product.price.toStringAsFixed(0)} ${product.currency} / ${product.unit}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          ),
                         ],
                       ),
-                    ),
                   ],
                 ),
               ),
