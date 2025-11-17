@@ -145,6 +145,39 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
+  Future<void> _showComplaintModal(BuildContext context, ConsumerOrder order) async {
+    if (order.supplierId == null || order.supplierCode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Supplier information is missing for this order'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ComplaintModal(
+        order: order,
+        repository: widget.repository,
+        onComplaintSent: () {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(context.l10n.complaintSent),
+                backgroundColor: Colors.green[700],
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _showOrderPlacementModal(
     BuildContext context,
     CartProvider cartProvider,
@@ -723,17 +756,28 @@ class _CartPageState extends State<CartPage> {
                 _buildOrderDetails(context, theme, l10n, order),
               ],
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: () => _handleReorder(order, cartProvider),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(l10n.reorder),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.green[700],
-                    side: BorderSide(color: Colors.green[700]!),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _showComplaintModal(context, order),
+                    icon: const Icon(Icons.report_problem, size: 18),
+                    label: Text(l10n.complain),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange[700],
+                      side: BorderSide(color: Colors.orange[700]!),
+                    ),
                   ),
-                ),
+                  OutlinedButton.icon(
+                    onPressed: () => _handleReorder(order, cartProvider),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text(l10n.reorder),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green[700],
+                      side: BorderSide(color: Colors.green[700]!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1054,6 +1098,215 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(l10n.confirmOrder),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Complaint Modal
+class _ComplaintModal extends StatefulWidget {
+  final ConsumerOrder order;
+  final ConsumerRepository repository;
+  final VoidCallback onComplaintSent;
+
+  const _ComplaintModal({
+    required this.order,
+    required this.repository,
+    required this.onComplaintSent,
+  });
+
+  @override
+  State<_ComplaintModal> createState() => _ComplaintModalState();
+}
+
+class _ComplaintModalState extends State<_ComplaintModal> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  String? _selectedImagePath;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (_titleController.text.trim().isEmpty || _descriptionController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please fill in title and description'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await widget.repository.createComplaint(
+        widget.order.id,
+        _titleController.text.trim(),
+        _descriptionController.text.trim(),
+        imageUrl: _selectedImagePath,
+        supplierId: widget.order.supplierId,
+        supplierCode: widget.order.supplierCode,
+      );
+      
+      if (mounted) {
+        widget.onComplaintSent();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending complaint: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Future<void> _pickImage() async {
+    // In a real app, use image_picker package
+    // For now, just simulate image selection
+    setState(() {
+      _selectedImagePath = 'path/to/image.jpg';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                l10n.placeComplaint,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Order #${widget.order.id}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Title
+              TextField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  labelText: l10n.complaintTitle,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Description
+              TextField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: l10n.complaintDescription,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                maxLines: 5,
+              ),
+              const SizedBox(height: 16),
+              // Photo upload
+              OutlinedButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.photo_library),
+                label: Text(l10n.uploadPhoto),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              if (_selectedImagePath != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(Icons.image, size: 40, color: Colors.grey[600]),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () {
+                            setState(() => _selectedImagePath = null);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
+              // Submit button
+              FilledButton(
+                onPressed: _isSubmitting ? null : _handleSubmit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orange[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.placeComplaint),
               ),
             ],
           ),

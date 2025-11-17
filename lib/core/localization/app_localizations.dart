@@ -15,7 +15,6 @@ class AppLocalizations {
       );
 
   String get login => _t(kk: 'Кіру', ru: 'Вход', en: 'Login');
-  String get email => _t(kk: 'Email', ru: 'Email', en: 'Email');
   String get password => _t(kk: 'Құпия сөз', ru: 'Пароль', en: 'Password');
   String get logout => _t(kk: 'Шығу', ru: 'Выход', en: 'Logout');
 
@@ -46,7 +45,6 @@ class AppLocalizations {
   String get dairy => _t(kk: 'Сүт өнімдері', ru: 'Молочные продукты', en: 'Dairy');
   String get order => _t(kk: 'Тапсырыс', ru: 'Заказ', en: 'Order');
   String get addToCart => _t(kk: 'Себетке қосу', ru: 'В корзину', en: 'Add to Cart');
-  String get description => _t(kk: 'Сипаттама', ru: 'Описание', en: 'Description');
   String get price => _t(kk: 'Баға', ru: 'Цена', en: 'Price');
   String get stock => _t(kk: 'Қор', ru: 'Наличие', en: 'Stock');
   String get minOrder => _t(kk: 'Минималды тапсырыс', ru: 'Минимальный заказ', en: 'Min Order');
@@ -119,6 +117,27 @@ class AppLocalizations {
   String get completed => _t(kk: 'Аяқталған', ru: 'Завершен', en: 'Completed');
   String get rejected => _t(kk: 'Қабылданбады', ru: 'Отклонен', en: 'Rejected');
   String get orderDetails => _t(kk: 'Тапсырыс мәліметтері', ru: 'Детали заказа', en: 'Order Details');
+  String get category => _t(kk: 'Категория', ru: 'Категория', en: 'Category');
+  String get businessDetails => _t(kk: 'Бизнес мәліметтері', ru: 'Детали бизнеса', en: 'Business Details');
+  String get description => _t(kk: 'Сипаттама', ru: 'Описание', en: 'Description');
+  String get deliveryRegions => _t(kk: 'Жеткізу аймақтары', ru: 'Регионы доставки', en: 'Delivery Regions');
+  String get paymentTerms => _t(kk: 'Төлем шарттары', ru: 'Условия оплаты', en: 'Payment Terms');
+  String get deliverySchedule => _t(kk: 'Жеткізу кестесі', ru: 'График доставки', en: 'Delivery Schedule');
+  String get contactInfo => _t(kk: 'Байланыс ақпараты', ru: 'Контактная информация', en: 'Contact Information');
+  String get phone => _t(kk: 'Телефон', ru: 'Телефон', en: 'Phone');
+  String get email => _t(kk: 'Email', ru: 'Email', en: 'Email');
+  String get website => _t(kk: 'Веб-сайт', ru: 'Веб-сайт', en: 'Website');
+  String get workingHours => _t(kk: 'Жұмыс уақыты', ru: 'Часы работы', en: 'Working Hours');
+  String get productCategories => _t(kk: 'Өнім категориялары', ru: 'Категории товаров', en: 'Product Categories');
+  String get noLinkedSuppliersMessage => _t(kk: 'Сізде байланысқан жеткізушілер жоқ. Жеткізушіні басып, мәліметтерді көру және байланыс сұрауын жіберу.', ru: 'У вас нет связанных поставщиков. Нажмите на поставщика, чтобы просмотреть детали и отправить запрос на связь.', en: 'You don\'t have any linked suppliers. Tap a supplier to view details and send a link request.');
+  String get complain => _t(kk: 'Шағымдану', ru: 'Пожаловаться', en: 'Complain');
+  String get placeComplaint => _t(kk: 'Шағым жіберу', ru: 'Отправить жалобу', en: 'Place Complaint');
+  String get complaintTitle => _t(kk: 'Тақырып', ru: 'Заголовок', en: 'Title');
+  String get complaintDescription => _t(kk: 'Сипаттама', ru: 'Описание', en: 'Description');
+  String get uploadPhoto => _t(kk: 'Фото жүктеу', ru: 'Загрузить фото', en: 'Upload Photo');
+  String get complaintSent => _t(kk: 'Сіздің шағымдарыңыз жіберілді. Оны әрі қарай Чаттар бетінде көре аласыз.', ru: 'Ваша жалоба отправлена. Вы можете просмотреть её далее на странице Чаты.', en: 'Your complaint was sent. You can view it further in the Chats page.');
+  String get typeMessage => _t(kk: 'Хабарлама теріңіз...', ru: 'Введите сообщение...', en: 'Type message...');
+  String get send => _t(kk: 'Жіберу', ru: 'Отправить', en: 'Send');
 
   String _t({required String kk, required String ru, required String en}) {
     switch (language) {

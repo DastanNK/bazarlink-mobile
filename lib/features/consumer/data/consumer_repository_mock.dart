@@ -21,12 +21,16 @@ class MockConsumerRepository implements ConsumerRepository {
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       status: 'accepted',
       total: 45000,
+      supplierId: 1,
+      supplierCode: 'BMS001',
     ),
     ConsumerOrder(
       id: 2,
       createdAt: DateTime.now(),
       status: 'pending',
       total: 12000,
+      supplierId: 2,
+      supplierCode: 'VL001',
     ),
   ];
 
@@ -58,6 +62,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Almaty',
       logoUrl: null,
       status: 'accepted',
+      category: 'Meat & Poultry',
+      description: 'Premium quality meat supplier specializing in fresh beef, chicken, and lamb. We source from local farms and ensure the highest standards.',
+      address: '123 Meat Street, Almaty',
+      deliveryRegions: ['Almaty', 'Astana', 'Shymkent'],
+      minOrderAmount: 50000,
+      paymentTerms: 'Net 30, Cash on delivery available',
+      deliverySchedule: 'Monday, Wednesday, Friday',
+      phone: '+7 777 123 4567',
+      email: 'info@bestmeat.kz',
+      website: 'www.bestmeat.kz',
+      workingHours: 'Mon-Fri: 8:00-18:00',
+      productCategories: ['Meat', 'Poultry', 'Sausages'],
     ),
     SupplierInfo(
       id: 2,
@@ -66,6 +82,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Astana',
       logoUrl: null,
       status: 'accepted',
+      category: 'Produce',
+      description: 'Fresh vegetables and fruits from local farms. Organic options available.',
+      address: '456 Green Avenue, Astana',
+      deliveryRegions: ['Astana', 'Almaty'],
+      minOrderAmount: 30000,
+      paymentTerms: 'Net 15',
+      deliverySchedule: 'Tuesday, Thursday, Saturday',
+      phone: '+7 777 234 5678',
+      email: 'contact@veggieland.kz',
+      website: 'www.veggieland.kz',
+      workingHours: 'Mon-Sat: 7:00-19:00',
+      productCategories: ['Vegetables', 'Fruits', 'Herbs'],
     ),
     SupplierInfo(
       id: 3,
@@ -74,6 +102,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Almaty',
       logoUrl: null,
       status: 'pending',
+      category: 'Dairy',
+      description: 'Fresh dairy products including milk, cheese, yogurt, and butter.',
+      address: '789 Dairy Road, Almaty',
+      deliveryRegions: ['Almaty'],
+      minOrderAmount: 25000,
+      paymentTerms: 'Cash on delivery',
+      deliverySchedule: 'Daily',
+      phone: '+7 777 345 6789',
+      email: 'sales@freshdairy.kz',
+      website: null,
+      workingHours: 'Mon-Sun: 6:00-20:00',
+      productCategories: ['Milk', 'Cheese', 'Yogurt', 'Butter'],
     ),
     SupplierInfo(
       id: 4,
@@ -82,6 +122,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Shymkent',
       logoUrl: null,
       status: null, // Not linked
+      category: 'Produce',
+      description: 'Certified organic fruits and vegetables.',
+      address: '321 Organic Lane, Shymkent',
+      deliveryRegions: ['Shymkent', 'Almaty'],
+      minOrderAmount: 40000,
+      paymentTerms: 'Net 30',
+      deliverySchedule: 'Monday, Wednesday',
+      phone: '+7 777 456 7890',
+      email: 'info@organicfruits.kz',
+      website: 'www.organicfruits.kz',
+      workingHours: 'Mon-Fri: 9:00-17:00',
+      productCategories: ['Organic Fruits', 'Organic Vegetables'],
     ),
     SupplierInfo(
       id: 5,
@@ -90,6 +142,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Almaty',
       logoUrl: null,
       status: 'blocked',
+      category: 'Seafood',
+      description: 'Fresh seafood and fish products.',
+      address: '654 Ocean Drive, Almaty',
+      deliveryRegions: ['Almaty'],
+      minOrderAmount: 60000,
+      paymentTerms: 'Prepayment required',
+      deliverySchedule: 'Tuesday, Friday',
+      phone: '+7 777 567 8901',
+      email: 'sales@premiumseafood.kz',
+      website: null,
+      workingHours: 'Mon-Fri: 7:00-16:00',
+      productCategories: ['Fish', 'Seafood', 'Frozen Seafood'],
     ),
     SupplierInfo(
       id: 6,
@@ -98,6 +162,18 @@ class MockConsumerRepository implements ConsumerRepository {
       city: 'Astana',
       logoUrl: null,
       status: null, // Not linked
+      category: 'Bakery',
+      description: 'Bakery ingredients and supplies for professional bakers.',
+      address: '987 Bread Street, Astana',
+      deliveryRegions: ['Astana'],
+      minOrderAmount: 35000,
+      paymentTerms: 'Net 20',
+      deliverySchedule: 'Monday, Thursday',
+      phone: '+7 777 678 9012',
+      email: 'orders@bakerysupplies.kz',
+      website: 'www.bakerysupplies.kz',
+      workingHours: 'Mon-Fri: 8:00-17:00',
+      productCategories: ['Flour', 'Yeast', 'Baking Supplies'],
     ),
   ];
 
@@ -282,8 +358,19 @@ class MockConsumerRepository implements ConsumerRepository {
   };
 
   final List<Complaint> _complaints = [
-    Complaint(id: 1, title: 'Late delivery', status: 'open'),
+    Complaint(
+      id: 1,
+      title: 'Late delivery',
+      status: 'open',
+      orderId: 1,
+      supplierId: 1,
+      supplierCode: 'BMS001',
+    ),
   ];
+
+  // Chats and messages
+  final List<Chat> _chats = [];
+  final Map<int, List<ChatMessage>> _chatMessages = {}; // chatId -> messages
 
   @override
   Future<List<Product>> getCatalog() async {
@@ -312,12 +399,24 @@ class MockConsumerRepository implements ConsumerRepository {
   @override
   Future<void> createOrder(Product product, {int quantity = 1, int supplierId = 0}) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    // Get supplier code from supplierId (mock implementation)
+    String? supplierCode;
+    if (supplierId > 0) {
+      final supplier = _allSuppliers.firstWhere(
+        (s) => s.id == supplierId,
+        orElse: () => SupplierInfo(id: 0, name: '', code: ''),
+      );
+      supplierCode = supplier.code.isEmpty ? null : supplier.code;
+    }
+    
     _orders.add(
       ConsumerOrder(
         id: _orders.length + 1,
         createdAt: DateTime.now(),
         status: 'pending',
         total: product.price * quantity,
+        supplierId: supplierId > 0 ? supplierId : null,
+        supplierCode: supplierCode,
       ),
     );
   }
@@ -328,15 +427,147 @@ class MockConsumerRepository implements ConsumerRepository {
   }
 
   @override
-  Future<void> createComplaint(int orderId, String text) async {
+  Future<void> createComplaint(
+    int orderId,
+    String title,
+    String description, {
+    String? imageUrl,
+    int? supplierId,
+    String? supplierCode,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    
+    final complaintId = _complaints.length + 1;
     _complaints.add(
       Complaint(
-        id: _complaints.length + 1,
-        title: 'Order #$orderId: $text',
+        id: complaintId,
+        title: title,
         status: 'open',
+        orderId: orderId,
+        supplierId: supplierId,
+        supplierCode: supplierCode,
       ),
     );
+
+    // Create chat if supplier info is provided
+    if (supplierId != null && supplierCode != null) {
+      // Get supplier info
+      final supplier = _allSuppliers.firstWhere(
+        (s) => s.id == supplierId && s.code == supplierCode,
+        orElse: () => SupplierInfo(
+          id: supplierId,
+          name: 'Supplier',
+          code: supplierCode,
+        ),
+      );
+
+      // Check if chat already exists for this supplier
+      var existingChat = _chats.firstWhere(
+        (chat) => chat.supplierId == supplierId && chat.complaintId == complaintId,
+        orElse: () => Chat(
+          id: 0,
+          supplierId: 0,
+          supplierName: '',
+          lastMessageAt: DateTime.now(),
+        ),
+      );
+
+      int chatId;
+      if (existingChat.id == 0) {
+        // Create new chat
+        chatId = _chats.length + 1;
+        _chats.add(
+          Chat(
+            id: chatId,
+            supplierId: supplierId,
+            supplierName: supplier.name,
+            supplierCode: supplierCode,
+            supplierLogoUrl: supplier.logoUrl,
+            lastMessageAt: DateTime.now(),
+            isComplaint: true,
+            complaintId: complaintId,
+          ),
+        );
+      } else {
+        chatId = existingChat.id;
+      }
+
+      // Create first message with complaint
+      final complaintMessage = 'Complaint: $title\n\n$description';
+      if (!_chatMessages.containsKey(chatId)) {
+        _chatMessages[chatId] = [];
+      }
+      _chatMessages[chatId]!.add(
+        ChatMessage(
+          id: _chatMessages[chatId]!.length + 1,
+          chatId: chatId,
+          text: complaintMessage,
+          isFromConsumer: true,
+          createdAt: DateTime.now(),
+          imageUrl: imageUrl,
+        ),
+      );
+
+      // Update chat last message time
+      final chatIndex = _chats.indexWhere((c) => c.id == chatId);
+      if (chatIndex >= 0) {
+        _chats[chatIndex] = Chat(
+          id: _chats[chatIndex].id,
+          supplierId: _chats[chatIndex].supplierId,
+          supplierName: _chats[chatIndex].supplierName,
+          supplierCode: _chats[chatIndex].supplierCode,
+          supplierLogoUrl: _chats[chatIndex].supplierLogoUrl,
+          lastMessageAt: DateTime.now(),
+          isComplaint: true,
+          complaintId: complaintId,
+        );
+      }
+    }
+  }
+
+  @override
+  Future<List<Chat>> getChats() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return List<Chat>.from(_chats)..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+  }
+
+  @override
+  Future<List<ChatMessage>> getChatMessages(int chatId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return List<ChatMessage>.from(_chatMessages[chatId] ?? [])
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  @override
+  Future<void> sendMessage(int chatId, String text) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!_chatMessages.containsKey(chatId)) {
+      _chatMessages[chatId] = [];
+    }
+    _chatMessages[chatId]!.add(
+      ChatMessage(
+        id: _chatMessages[chatId]!.length + 1,
+        chatId: chatId,
+        text: text,
+        isFromConsumer: true,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    // Update chat last message time
+    final chatIndex = _chats.indexWhere((c) => c.id == chatId);
+    if (chatIndex >= 0) {
+      _chats[chatIndex] = Chat(
+        id: _chats[chatIndex].id,
+        supplierId: _chats[chatIndex].supplierId,
+        supplierName: _chats[chatIndex].supplierName,
+        supplierCode: _chats[chatIndex].supplierCode,
+        supplierLogoUrl: _chats[chatIndex].supplierLogoUrl,
+        lastMessageAt: DateTime.now(),
+        isComplaint: _chats[chatIndex].isComplaint,
+        complaintId: _chats[chatIndex].complaintId,
+      );
+    }
   }
 
   @override
@@ -436,13 +667,26 @@ class MockConsumerRepository implements ConsumerRepository {
     // Update supplier status
     final index = _allSuppliers.indexWhere((s) => s.code == supplierCode);
     if (index >= 0) {
+      final existing = _allSuppliers[index];
       _allSuppliers[index] = SupplierInfo(
-        id: _allSuppliers[index].id,
-        name: _allSuppliers[index].name,
-        code: _allSuppliers[index].code,
-        city: _allSuppliers[index].city,
-        logoUrl: _allSuppliers[index].logoUrl,
+        id: existing.id,
+        name: existing.name,
+        code: existing.code,
+        city: existing.city,
+        logoUrl: existing.logoUrl,
         status: 'pending',
+        category: existing.category,
+        description: existing.description,
+        address: existing.address,
+        deliveryRegions: existing.deliveryRegions,
+        minOrderAmount: existing.minOrderAmount,
+        paymentTerms: existing.paymentTerms,
+        deliverySchedule: existing.deliverySchedule,
+        phone: existing.phone,
+        email: existing.email,
+        website: existing.website,
+        workingHours: existing.workingHours,
+        productCategories: existing.productCategories,
       );
     }
   }
@@ -457,13 +701,26 @@ class MockConsumerRepository implements ConsumerRepository {
     // Update supplier status back to null
     final index = _allSuppliers.indexWhere((s) => s.code == supplierCode);
     if (index >= 0) {
+      final existing = _allSuppliers[index];
       _allSuppliers[index] = SupplierInfo(
-        id: _allSuppliers[index].id,
-        name: _allSuppliers[index].name,
-        code: _allSuppliers[index].code,
-        city: _allSuppliers[index].city,
-        logoUrl: _allSuppliers[index].logoUrl,
+        id: existing.id,
+        name: existing.name,
+        code: existing.code,
+        city: existing.city,
+        logoUrl: existing.logoUrl,
         status: null,
+        category: existing.category,
+        description: existing.description,
+        address: existing.address,
+        deliveryRegions: existing.deliveryRegions,
+        minOrderAmount: existing.minOrderAmount,
+        paymentTerms: existing.paymentTerms,
+        deliverySchedule: existing.deliverySchedule,
+        phone: existing.phone,
+        email: existing.email,
+        website: existing.website,
+        workingHours: existing.workingHours,
+        productCategories: existing.productCategories,
       );
     }
   }

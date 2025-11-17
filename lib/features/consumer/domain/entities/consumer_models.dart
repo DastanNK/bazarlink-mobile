@@ -82,12 +82,16 @@ class ConsumerOrder {
   final DateTime createdAt;
   final String status;
   final double total;
+  final int? supplierId;
+  final String? supplierCode;
 
   ConsumerOrder({
     required this.id,
     required this.createdAt,
     required this.status,
     required this.total,
+    this.supplierId,
+    this.supplierCode,
   });
 }
 
@@ -116,6 +120,18 @@ class SupplierInfo {
   final String? city;
   final String? logoUrl;
   final String? status; // null if not linked, otherwise same as LinkInfo.status
+  final String? category; // e.g., "Meat & Poultry", "Dairy", "Produce"
+  final String? description;
+  final String? address;
+  final List<String>? deliveryRegions;
+  final double? minOrderAmount;
+  final String? paymentTerms;
+  final String? deliverySchedule;
+  final String? phone;
+  final String? email;
+  final String? website;
+  final String? workingHours;
+  final List<String>? productCategories;
 
   SupplierInfo({
     required this.id,
@@ -124,6 +140,18 @@ class SupplierInfo {
     this.city,
     this.logoUrl,
     this.status,
+    this.category,
+    this.description,
+    this.address,
+    this.deliveryRegions,
+    this.minOrderAmount,
+    this.paymentTerms,
+    this.deliverySchedule,
+    this.phone,
+    this.email,
+    this.website,
+    this.workingHours,
+    this.productCategories,
   });
 }
 
@@ -131,10 +159,56 @@ class Complaint {
   final int id;
   final String title;
   final String status;
+  final int orderId;
+  final int? supplierId;
+  final String? supplierCode;
 
   Complaint({
     required this.id,
     required this.title,
     required this.status,
+    required this.orderId,
+    this.supplierId,
+    this.supplierCode,
+  });
+}
+
+class Chat {
+  final int id;
+  final int supplierId;
+  final String supplierName;
+  final String? supplierCode;
+  final String? supplierLogoUrl;
+  final DateTime lastMessageAt;
+  final bool isComplaint; // Highlight with red border if true
+  final int? complaintId; // Link to complaint if this is a complaint chat
+
+  Chat({
+    required this.id,
+    required this.supplierId,
+    required this.supplierName,
+    this.supplierCode,
+    this.supplierLogoUrl,
+    required this.lastMessageAt,
+    this.isComplaint = false,
+    this.complaintId,
+  });
+}
+
+class ChatMessage {
+  final int id;
+  final int chatId;
+  final String text;
+  final bool isFromConsumer;
+  final DateTime createdAt;
+  final String? imageUrl;
+
+  ChatMessage({
+    required this.id,
+    required this.chatId,
+    required this.text,
+    required this.isFromConsumer,
+    required this.createdAt,
+    this.imageUrl,
   });
 }

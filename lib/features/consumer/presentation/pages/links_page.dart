@@ -119,13 +119,15 @@ class _LinksPageState extends State<LinksPage> {
     }
   }
 
-  void _handleOpenCatalog(String supplierCode) {
-    // Navigate to catalog and filter by this supplier
-    // This would be handled by parent navigation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening catalog for supplier...'),
-        backgroundColor: Colors.green[700],
+  void _navigateToBusinessDetails(SupplierInfo supplier) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BusinessDetailsPage(
+          supplier: supplier,
+          repository: widget.repository,
+          onRequestLink: () => _handleRequestLink(supplier),
+          onCancelRequest: () => _handleCancelRequest(supplier.code),
+        ),
       ),
     );
   }
@@ -281,18 +283,19 @@ class _LinksPageState extends State<LinksPage> {
           return _buildEmptyMySuppliers(context, theme, l10n);
         }
 
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: links.length,
-            itemBuilder: (context, index) {
-              final link = links[index];
-              return _buildSupplierCard(
-                context,
-                theme,
-                l10n,
-                SupplierInfo(
+        // Get full supplier info for linked suppliers
+        return FutureBuilder<List<SupplierInfo>>(
+          future: _allSuppliersFuture,
+          builder: (context, suppliersSnapshot) {
+            if (!suppliersSnapshot.hasData) {
+              return _buildEmptyMySuppliers(context, theme, l10n);
+            }
+
+            final allSuppliers = suppliersSnapshot.data!;
+            final linkedSuppliers = links.map((link) {
+              final supplier = allSuppliers.firstWhere(
+                (s) => s.code == link.supplierCode,
+                orElse: () => SupplierInfo(
                   id: link.id,
                   name: link.supplierName,
                   code: link.supplierCode ?? '',
@@ -301,8 +304,20 @@ class _LinksPageState extends State<LinksPage> {
                   status: link.status,
                 ),
               );
-            },
-          ),
+              return supplier;
+            }).toList();
+
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: linkedSuppliers.length,
+                itemBuilder: (context, index) {
+                  return _buildSupplierCard(context, theme, l10n, linkedSuppliers[index]);
+                },
+              ),
+            );
+          },
         );
       },
     );
@@ -384,141 +399,139 @@ class _LinksPageState extends State<LinksPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Logo
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.green[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: supplier.logoUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        supplier.logoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.store,
-                          color: Colors.green[700],
-                          size: 30,
+      child: InkWell(
+        onTap: isBlocked ? null : () => _navigateToBusinessDetails(supplier),
+        child: Opacity(
+          opacity: isBlocked ? 0.6 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // Logo
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.green[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: supplier.logoUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                supplier.logoUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.store,
+                                  color: Colors.green[700],
+                                  size: 30,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.store,
+                              color: Colors.green[700],
+                              size: 30,
+                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Supplier Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            supplier.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (supplier.category != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              supplier.category!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                          if (supplier.city != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  supplier.city!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Status pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: isBlocked ? Border.all(color: statusColor, width: 1) : null,
+                      ),
+                      child: Text(
+                        statusText,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    )
-                  : Icon(
-                      Icons.store,
-                      color: Colors.green[700],
-                      size: 30,
-                    ),
-            ),
-            const SizedBox(width: 16),
-            // Supplier Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    supplier.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (supplier.city != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          supplier.city!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
-                ],
-              ),
-            ),
-            // Status and Actions
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: isBlocked ? Border.all(color: statusColor, width: 1) : null,
-                  ),
-                  child: Text(
-                    statusText,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 8),
-                if (isLinked)
-                  FilledButton(
-                    onPressed: () => _handleOpenCatalog(supplier.code),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: Text(l10n.openCatalog),
-                  )
-                else if (isPending)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                // Action buttons for Not linked and Pending
+                if (isNotLinked || isPending) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text(
-                        l10n.requestSent,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextButton(
-                        onPressed: () => _handleCancelRequest(supplier.code),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          l10n.cancelRequest,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.orange[700],
+                      if (isNotLinked)
+                        FilledButton(
+                          onPressed: () => _handleRequestLink(supplier),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: Text(l10n.requestLink),
+                        )
+                      else if (isPending)
+                        TextButton(
+                          onPressed: () => _handleCancelRequest(supplier.code),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          child: Text(
+                            l10n.cancelRequest,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.orange[700],
+                            ),
                           ),
                         ),
-                      ),
                     ],
-                  )
-                else if (isNotLinked)
-                  FilledButton(
-                    onPressed: () => _handleRequestLink(supplier),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: Text(l10n.requestLink),
                   ),
+                ],
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -546,7 +559,7 @@ class _LinksPageState extends State<LinksPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              l10n.sendLinkRequestToStart,
+              l10n.noLinkedSuppliersMessage,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
@@ -569,6 +582,295 @@ class _LinksPageState extends State<LinksPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Business Details Page
+class BusinessDetailsPage extends StatelessWidget {
+  final SupplierInfo supplier;
+  final ConsumerRepository repository;
+  final VoidCallback onRequestLink;
+  final VoidCallback onCancelRequest;
+
+  const BusinessDetailsPage({
+    super.key,
+    required this.supplier,
+    required this.repository,
+    required this.onRequestLink,
+    required this.onCancelRequest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final status = supplier.status;
+    final isLinked = status == 'accepted';
+    final isPending = status == 'pending';
+    final isBlocked = status == 'blocked';
+    final isNotLinked = status == null;
+
+    Color statusColor;
+    String statusText;
+    if (isLinked) {
+      statusColor = Colors.green;
+      statusText = l10n.linked;
+    } else if (isPending) {
+      statusColor = Colors.orange;
+      statusText = l10n.pending;
+    } else if (isBlocked) {
+      statusColor = Colors.red;
+      statusText = l10n.blocked;
+    } else {
+      statusColor = Colors.grey;
+      statusText = l10n.notLinked;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.businessDetails),
+        backgroundColor: Colors.green[700],
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header with logo and name
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                border: Border(
+                  bottom: BorderSide(color: Colors.green[200]!, width: 1),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Logo
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.green[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: supplier.logoUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              supplier.logoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.store,
+                                color: Colors.green[700],
+                                size: 50,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            Icons.store,
+                            color: Colors.green[700],
+                            size: 50,
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    supplier.name,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  // Status pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: isBlocked ? Border.all(color: statusColor, width: 1) : null,
+                    ),
+                    child: Text(
+                      statusText,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Description
+                  if (supplier.description != null) ...[
+                    Text(
+                      l10n.description,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      supplier.description!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Location
+                  if (supplier.city != null || supplier.address != null) ...[
+                    Text(
+                      l10n.city,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (supplier.city != null)
+                      _buildInfoRow(theme, Icons.location_on, supplier.city!),
+                    if (supplier.address != null)
+                      _buildInfoRow(theme, Icons.home, supplier.address!),
+                    if (supplier.deliveryRegions != null && supplier.deliveryRegions!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      _buildInfoRow(
+                        theme,
+                        Icons.local_shipping,
+                        '${l10n.deliveryRegions}: ${supplier.deliveryRegions!.join(", ")}',
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Order Terms
+                  if (supplier.minOrderAmount != null || supplier.paymentTerms != null || supplier.deliverySchedule != null) ...[
+                    Text(
+                      l10n.minOrder,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (supplier.minOrderAmount != null)
+                      _buildInfoRow(theme, Icons.shopping_cart, '${supplier.minOrderAmount!.toStringAsFixed(0)} ₸'),
+                    if (supplier.paymentTerms != null)
+                      _buildInfoRow(theme, Icons.payment, supplier.paymentTerms!),
+                    if (supplier.deliverySchedule != null)
+                      _buildInfoRow(theme, Icons.calendar_today, supplier.deliverySchedule!),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Contact Info
+                  if (supplier.phone != null || supplier.email != null || supplier.website != null || supplier.workingHours != null) ...[
+                    Text(
+                      l10n.contactInfo,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (supplier.phone != null)
+                      _buildInfoRow(theme, Icons.phone, supplier.phone!),
+                    if (supplier.email != null)
+                      _buildInfoRow(theme, Icons.email, supplier.email!),
+                    if (supplier.website != null)
+                      _buildInfoRow(theme, Icons.language, supplier.website!),
+                    if (supplier.workingHours != null)
+                      _buildInfoRow(theme, Icons.access_time, supplier.workingHours!),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Product Categories
+                  if (supplier.productCategories != null && supplier.productCategories!.isNotEmpty) ...[
+                    Text(
+                      l10n.productCategories,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: supplier.productCategories!.map((category) {
+                        return Chip(
+                          label: Text(category),
+                          backgroundColor: Colors.green[50],
+                          labelStyle: TextStyle(color: Colors.green[900]),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ],
+              ),
+            ),
+
+            // Bottom Action Button
+            if (!isBlocked)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: isNotLinked
+                    ? FilledButton(
+                        onPressed: onRequestLink,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: Text(l10n.requestLink),
+                      )
+                    : isPending
+                        ? OutlinedButton(
+                            onPressed: onCancelRequest,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.orange[700],
+                              side: BorderSide(color: Colors.orange[700]!),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(l10n.cancelRequest),
+                          )
+                        : const SizedBox.shrink(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(ThemeData theme, IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ],
       ),
     );
   }

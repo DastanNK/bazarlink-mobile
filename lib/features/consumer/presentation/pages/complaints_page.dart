@@ -16,13 +16,22 @@ class ComplaintsPage extends StatefulWidget {
 
 class _ComplaintsPageState extends State<ComplaintsPage> {
   late Future<List<Complaint>> _future;
-  final _textCtrl = TextEditingController();
+  final _titleCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
   final _orderIdCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _future = widget.repository.getComplaints();
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descriptionCtrl.dispose();
+    _orderIdCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -50,20 +59,34 @@ class _ComplaintsPageState extends State<ComplaintsPage> {
               ),
               const SizedBox(height: 8),
               TextField(
-                controller: _textCtrl,
+                controller: _titleCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Complaint text',
+                  labelText: 'Complaint Title',
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _descriptionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Complaint Description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
               ),
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: () async {
                   final id = int.tryParse(_orderIdCtrl.text.trim());
                   if (id == null) return;
-                  await widget.repository.createComplaint(id, _textCtrl.text);
+                  await widget.repository.createComplaint(
+                    id,
+                    _titleCtrl.text.trim(),
+                    _descriptionCtrl.text.trim(),
+                  );
                   _orderIdCtrl.clear();
-                  _textCtrl.clear();
+                  _titleCtrl.clear();
+                  _descriptionCtrl.clear();
                   if (!mounted) return;
                   await _refresh();
                 },

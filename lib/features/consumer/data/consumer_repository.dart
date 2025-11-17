@@ -9,7 +9,12 @@ abstract class ConsumerRepository {
 
   Future<void> createOrder(Product product, {int quantity = 1, int supplierId = 0});
   Future<void> requestLink(String supplierCode);
-  Future<void> createComplaint(int orderId, String text);
+  Future<void> createComplaint(int orderId, String title, String description, {String? imageUrl, int? supplierId, String? supplierCode});
+  
+  // Chat methods
+  Future<List<Chat>> getChats();
+  Future<List<ChatMessage>> getChatMessages(int chatId);
+  Future<void> sendMessage(int chatId, String text);
   
   Future<List<Supplier>> getSuppliersForProduct(int productId);
   Future<bool> isLinkedToSupplier(String supplierCode);

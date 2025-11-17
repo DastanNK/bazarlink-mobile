@@ -5,14 +5,12 @@ import 'package:provider/provider.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/localization/localization_provider.dart';
 import '../../../core/routing/app_router.dart' show BuildContextX;
-import '../../../core/widgets/primary_button.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/entities/user.dart';
 import '../data/consumer_repository.dart';
 import 'pages/cart_page.dart';
 import 'pages/catalog_page.dart';
 import 'pages/chats_page.dart';
-import 'pages/complaints_page.dart';
 import 'pages/links_page.dart';
 import 'pages/profile_page.dart';
 
@@ -42,8 +40,7 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
         onNavigateToCart: () => setState(() => _index = 0),
       ),
       LinksPage(repository: repository),
-      ComplaintsPage(repository: repository),
-      const ChatsPage(),
+      ChatsPage(repository: repository),
     ];
 
     return Scaffold(
@@ -110,7 +107,6 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
           NavigationDestination(icon: const Icon(Icons.shopping_cart), label: l10n.cart),
           NavigationDestination(icon: const Icon(Icons.store), label: l10n.catalog),
           NavigationDestination(icon: const Icon(Icons.link), label: l10n.links),
-          NavigationDestination(icon: const Icon(Icons.report_problem), label: l10n.complaints),
           NavigationDestination(icon: const Icon(Icons.chat), label: l10n.chats),
         ],
       ),
