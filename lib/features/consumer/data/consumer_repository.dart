@@ -14,7 +14,9 @@ abstract class ConsumerRepository {
   // Chat methods
   Future<List<Chat>> getChats();
   Future<List<ChatMessage>> getChatMessages(int chatId);
-  Future<void> sendMessage(int chatId, String text);
+  Future<void> sendMessage(int chatId, String text, {String? imageUrl, String? receiptUrl, int? productId});
+  Future<List<String>> getCannedReplies();
+  Future<int> startChatWithSupplier(int supplierId, String supplierCode); // Returns chatId
   
   Future<List<Supplier>> getSuppliersForProduct(int productId);
   Future<bool> isLinkedToSupplier(String supplierCode);

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/localization/localization_provider.dart';
 import '../../../core/routing/app_router.dart' show BuildContextX;
-import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/entities/user.dart';
 import '../data/consumer_repository.dart';
 import 'pages/cart_page.dart';
@@ -51,7 +50,20 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
           Consumer<LocalizationProvider>(
             builder: (context, langProvider, _) {
               return PopupMenuButton<AppLanguage>(
-                icon: Icon(Icons.language, color: Colors.green[700]),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.language, color: Colors.green[700], size: 20),
+                      const SizedBox(width: 4),
+                      Text(
+                        langProvider.language.displayName,
+                        style: TextStyle(color: Colors.green[700], fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
                 onSelected: (language) {
                   langProvider.setLanguage(language);
                 },
@@ -85,17 +97,6 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
               );
             },
             tooltip: l10n.profile,
-          ),
-          // Logout button
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await context.read<AuthRepository>().logout();
-              if (!mounted) return;
-              Navigator.of(context)
-                  .pushNamedAndRemoveUntil('/login', (route) => false);
-            },
-            tooltip: l10n.logout,
           ),
         ],
       ),

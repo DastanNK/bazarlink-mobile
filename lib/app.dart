@@ -25,8 +25,8 @@ class SCPApp extends StatelessWidget {
         Provider<ConsumerRepository>(create: (_) => MockConsumerRepository()),
         Provider<SalesRepository>(create: (_) => MockSalesRepository()),
       ],
-      child: Builder(
-        builder: (context) {
+      child: Consumer<LocalizationProvider>(
+        builder: (context, langProvider, _) {
           return MaterialApp(
             title: 'SCP',
             theme: ThemeData(

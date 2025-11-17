@@ -202,6 +202,11 @@ class ChatMessage {
   final bool isFromConsumer;
   final DateTime createdAt;
   final String? imageUrl;
+  final String? receiptUrl; // Receipt attachment
+  final int? productId; // Product link
+  final String? productName; // Product name for display
+  final bool isEscalated; // Escalated to manager
+  final String? senderRole; // 'consumer', 'sales', 'manager'
 
   ChatMessage({
     required this.id,
@@ -210,5 +215,10 @@ class ChatMessage {
     required this.isFromConsumer,
     required this.createdAt,
     this.imageUrl,
+    this.receiptUrl,
+    this.productId,
+    this.productName,
+    this.isEscalated = false,
+    this.senderRole,
   });
 }

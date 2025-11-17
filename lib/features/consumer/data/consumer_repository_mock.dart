@@ -539,11 +539,18 @@ class MockConsumerRepository implements ConsumerRepository {
   }
 
   @override
-  Future<void> sendMessage(int chatId, String text) async {
+  Future<void> sendMessage(int chatId, String text, {String? imageUrl, String? receiptUrl, int? productId}) async {
     await Future.delayed(const Duration(milliseconds: 200));
     if (!_chatMessages.containsKey(chatId)) {
       _chatMessages[chatId] = [];
     }
+    
+    String? productName;
+    if (productId != null) {
+      final product = _products.firstWhere((p) => p.id == productId, orElse: () => _products.first);
+      productName = product.name;
+    }
+    
     _chatMessages[chatId]!.add(
       ChatMessage(
         id: _chatMessages[chatId]!.length + 1,
@@ -551,6 +558,11 @@ class MockConsumerRepository implements ConsumerRepository {
         text: text,
         isFromConsumer: true,
         createdAt: DateTime.now(),
+        imageUrl: imageUrl,
+        receiptUrl: receiptUrl,
+        productId: productId,
+        productName: productName,
+        senderRole: 'consumer',
       ),
     );
 
@@ -723,5 +735,68 @@ class MockConsumerRepository implements ConsumerRepository {
         productCategories: existing.productCategories,
       );
     }
+  }
+
+  @override
+  Future<List<String>> getCannedReplies() async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return [
+      'Thank you for your order!',
+      'I have a question about my order.',
+      'When will my order be delivered?',
+      'I need to change my order.',
+      'Can I cancel my order?',
+      'The product quality was excellent!',
+      'I received the wrong items.',
+      'Thank you for your help!',
+    ];
+  }
+
+  @override
+  Future<int> startChatWithSupplier(int supplierId, String supplierCode) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    
+    // Check if chat already exists
+    final existingChat = _chats.firstWhere(
+      (chat) => chat.supplierId == supplierId && chat.supplierCode == supplierCode,
+      orElse: () => Chat(
+        id: 0,
+        supplierId: 0,
+        supplierName: '',
+        lastMessageAt: DateTime.now(),
+      ),
+    );
+
+    if (existingChat.id != 0) {
+      return existingChat.id;
+    }
+
+    // Create new chat
+    final supplier = _allSuppliers.firstWhere(
+      (s) => s.id == supplierId && s.code == supplierCode,
+      orElse: () => SupplierInfo(
+        id: supplierId,
+        name: 'Supplier',
+        code: supplierCode,
+      ),
+    );
+
+    final chatId = _chats.length + 1;
+    _chats.add(
+      Chat(
+        id: chatId,
+        supplierId: supplierId,
+        supplierName: supplier.name,
+        supplierCode: supplierCode,
+        supplierLogoUrl: supplier.logoUrl,
+        lastMessageAt: DateTime.now(),
+        isComplaint: false,
+      ),
+    );
+
+    // Initialize empty messages list
+    _chatMessages[chatId] = [];
+
+    return chatId;
   }
 }

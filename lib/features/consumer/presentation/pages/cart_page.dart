@@ -26,7 +26,7 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> {
   late Future<List<ConsumerOrder>> _pastOrdersFuture;
   late Future<Map<String, String>> _supplierNamesMap;
-  String _orderFilter = 'all';
+  String _orderFilter = 'all'; // Default to 'all'
   final Map<int, bool> _expandedOrders = {};
 
   @override
@@ -580,6 +580,8 @@ class _CartPageState extends State<CartPage> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                _buildFilterChip(theme, l10n.allCategories, 'all', l10n),
+                const SizedBox(width: 8),
                 _buildFilterChip(theme, l10n.pending, 'pending', l10n),
                 const SizedBox(width: 8),
                 _buildFilterChip(theme, l10n.inProcess, 'in_process', l10n),
@@ -648,7 +650,12 @@ class _CartPageState extends State<CartPage> {
       selected: isSelected,
       onSelected: (selected) {
         setState(() {
-          _orderFilter = value;
+          // If clicking the same selected tab, select "all" (like catalog page)
+          if (isSelected) {
+            _orderFilter = 'all';
+          } else {
+            _orderFilter = value;
+          }
         });
       },
       selectedColor: Colors.green[100],
@@ -759,14 +766,11 @@ class _CartPageState extends State<CartPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  OutlinedButton.icon(
+                  IconButton(
                     onPressed: () => _showComplaintModal(context, order),
-                    icon: const Icon(Icons.report_problem, size: 18),
-                    label: Text(l10n.complain),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.orange[700],
-                      side: BorderSide(color: Colors.orange[700]!),
-                    ),
+                    icon: const Icon(Icons.report_problem, size: 20),
+                    color: Colors.orange[700],
+                    tooltip: l10n.complain,
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _handleReorder(order, cartProvider),

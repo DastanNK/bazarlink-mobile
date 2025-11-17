@@ -138,6 +138,17 @@ class AppLocalizations {
   String get complaintSent => _t(kk: 'Сіздің шағымдарыңыз жіберілді. Оны әрі қарай Чаттар бетінде көре аласыз.', ru: 'Ваша жалоба отправлена. Вы можете просмотреть её далее на странице Чаты.', en: 'Your complaint was sent. You can view it further in the Chats page.');
   String get typeMessage => _t(kk: 'Хабарлама теріңіз...', ru: 'Введите сообщение...', en: 'Type message...');
   String get send => _t(kk: 'Жіберу', ru: 'Отправить', en: 'Send');
+  String get attachFile => _t(kk: 'Файл тіркеу', ru: 'Прикрепить файл', en: 'Attach File');
+  String get attachReceipt => _t(kk: 'Чек тіркеу', ru: 'Прикрепить чек', en: 'Attach Receipt');
+  String get attachProduct => _t(kk: 'Өнім тіркеу', ru: 'Прикрепить товар', en: 'Attach Product');
+  String get receipt => _t(kk: 'Чек', ru: 'Чек', en: 'Receipt');
+  String get viewReceipt => _t(kk: 'Чекті көру', ru: 'Просмотреть чек', en: 'View Receipt');
+  String get productLink => _t(kk: 'Өнім сілтемесі', ru: 'Ссылка на товар', en: 'Product Link');
+  String get viewProduct => _t(kk: 'Өнімді көру', ru: 'Просмотреть товар', en: 'View Product');
+  String get cannedReplies => _t(kk: 'Дайын жауаптар', ru: 'Готовые ответы', en: 'Canned Replies');
+  String get escalatedToManager => _t(kk: 'Менеджерге жіберілді', ru: 'Передано менеджеру', en: 'Escalated to Manager');
+  String get salesRepresentative => _t(kk: 'Сатушы өкілі', ru: 'Представитель продаж', en: 'Sales Representative');
+  String get manager => _t(kk: 'Менеджер', ru: 'Менеджер', en: 'Manager');
 
   String _t({required String kk, required String ru, required String en}) {
     switch (language) {
