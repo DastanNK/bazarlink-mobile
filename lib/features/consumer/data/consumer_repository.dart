@@ -19,4 +19,9 @@ abstract class ConsumerRepository {
   Future<List<String>> getCategoriesForSupplier(String supplierCode);
   Future<List<SupplierProduct>> getProductsBySupplier(String supplierCode, {String? category});
   Future<Supplier?> getSupplierDetailsForProduct(int productId, String supplierCode);
+  
+  // Methods for links page
+  Future<List<SupplierInfo>> getAllSuppliers({String? searchQuery});
+  Future<void> requestLinkWithMessage(String supplierCode, {String? message});
+  Future<void> cancelLinkRequest(String supplierCode);
 }

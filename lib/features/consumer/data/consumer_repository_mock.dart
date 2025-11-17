@@ -31,8 +31,74 @@ class MockConsumerRepository implements ConsumerRepository {
   ];
 
   final List<LinkInfo> _links = [
-    LinkInfo(id: 1, supplierName: 'Best Meat Supplier', status: 'accepted', supplierCode: 'BMS001'),
-    LinkInfo(id: 2, supplierName: 'VeggieLand', status: 'accepted', supplierCode: 'VL001'),
+    LinkInfo(
+      id: 1,
+      supplierName: 'Best Meat Supplier',
+      status: 'accepted',
+      supplierCode: 'BMS001',
+      city: 'Almaty',
+      logoUrl: null,
+    ),
+    LinkInfo(
+      id: 2,
+      supplierName: 'VeggieLand',
+      status: 'accepted',
+      supplierCode: 'VL001',
+      city: 'Astana',
+      logoUrl: null,
+    ),
+  ];
+
+  // All available suppliers
+  final List<SupplierInfo> _allSuppliers = [
+    SupplierInfo(
+      id: 1,
+      name: 'Best Meat Supplier',
+      code: 'BMS001',
+      city: 'Almaty',
+      logoUrl: null,
+      status: 'accepted',
+    ),
+    SupplierInfo(
+      id: 2,
+      name: 'VeggieLand',
+      code: 'VL001',
+      city: 'Astana',
+      logoUrl: null,
+      status: 'accepted',
+    ),
+    SupplierInfo(
+      id: 3,
+      name: 'Fresh Dairy Co',
+      code: 'FDC001',
+      city: 'Almaty',
+      logoUrl: null,
+      status: 'pending',
+    ),
+    SupplierInfo(
+      id: 4,
+      name: 'Organic Fruits',
+      code: 'OF001',
+      city: 'Shymkent',
+      logoUrl: null,
+      status: null, // Not linked
+    ),
+    SupplierInfo(
+      id: 5,
+      name: 'Premium Seafood',
+      code: 'PS001',
+      city: 'Almaty',
+      logoUrl: null,
+      status: 'blocked',
+    ),
+    SupplierInfo(
+      id: 6,
+      name: 'Bakery Supplies',
+      code: 'BS001',
+      city: 'Astana',
+      logoUrl: null,
+      status: null, // Not linked
+    ),
   ];
 
   // Supplier products mapping: supplierCode -> List<SupplierProduct>
@@ -258,15 +324,7 @@ class MockConsumerRepository implements ConsumerRepository {
 
   @override
   Future<void> requestLink(String supplierCode) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _links.add(
-      LinkInfo(
-        id: _links.length + 1,
-        supplierName: 'Code=$supplierCode',
-        status: 'pending',
-        supplierCode: supplierCode,
-      ),
-    );
+    await requestLinkWithMessage(supplierCode);
   }
 
   @override
@@ -331,6 +389,82 @@ class MockConsumerRepository implements ConsumerRepository {
       );
     } catch (e) {
       return null;
+    }
+  }
+
+  @override
+  Future<List<SupplierInfo>> getAllSuppliers({String? searchQuery}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    var suppliers = List<SupplierInfo>.from(_allSuppliers);
+    
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      final query = searchQuery.toLowerCase();
+      suppliers = suppliers.where((s) => 
+        s.name.toLowerCase().contains(query) ||
+        (s.city?.toLowerCase().contains(query) ?? false)
+      ).toList();
+    }
+    
+    return suppliers;
+  }
+
+  @override
+  Future<void> requestLinkWithMessage(String supplierCode, {String? message}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    // Find supplier and add to links with pending status
+    final supplier = _allSuppliers.firstWhere(
+      (s) => s.code == supplierCode,
+      orElse: () => SupplierInfo(
+        id: 999,
+        name: 'Unknown Supplier',
+        code: supplierCode,
+        status: null,
+      ),
+    );
+    
+    _links.add(
+      LinkInfo(
+        id: _links.length + 1,
+        supplierName: supplier.name,
+        status: 'pending',
+        supplierCode: supplierCode,
+        city: supplier.city,
+        logoUrl: supplier.logoUrl,
+      ),
+    );
+    
+    // Update supplier status
+    final index = _allSuppliers.indexWhere((s) => s.code == supplierCode);
+    if (index >= 0) {
+      _allSuppliers[index] = SupplierInfo(
+        id: _allSuppliers[index].id,
+        name: _allSuppliers[index].name,
+        code: _allSuppliers[index].code,
+        city: _allSuppliers[index].city,
+        logoUrl: _allSuppliers[index].logoUrl,
+        status: 'pending',
+      );
+    }
+  }
+
+  @override
+  Future<void> cancelLinkRequest(String supplierCode) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    _links.removeWhere((link) => 
+      link.supplierCode == supplierCode && link.status == 'pending'
+    );
+    
+    // Update supplier status back to null
+    final index = _allSuppliers.indexWhere((s) => s.code == supplierCode);
+    if (index >= 0) {
+      _allSuppliers[index] = SupplierInfo(
+        id: _allSuppliers[index].id,
+        name: _allSuppliers[index].name,
+        code: _allSuppliers[index].code,
+        city: _allSuppliers[index].city,
+        logoUrl: _allSuppliers[index].logoUrl,
+        status: null,
+      );
     }
   }
 }

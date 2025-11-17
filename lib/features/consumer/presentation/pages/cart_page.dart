@@ -1,0 +1,1064 @@
+// lib/features/consumer/presentation/pages/cart_page.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/routing/app_router.dart' show BuildContextX;
+import '../../data/consumer_repository.dart';
+import '../../domain/entities/consumer_models.dart';
+import '../../domain/entities/cart_item.dart';
+import '../cart_provider.dart';
+
+class CartPage extends StatefulWidget {
+  final ConsumerRepository repository;
+  final VoidCallback? onNavigateToCatalog;
+
+  const CartPage({
+    super.key,
+    required this.repository,
+    this.onNavigateToCatalog,
+  });
+
+  @override
+  State<CartPage> createState() => _CartPageState();
+}
+
+class _CartPageState extends State<CartPage> {
+  late Future<List<ConsumerOrder>> _pastOrdersFuture;
+  late Future<Map<String, String>> _supplierNamesMap;
+  String _orderFilter = 'all';
+  final Map<int, bool> _expandedOrders = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _pastOrdersFuture = widget.repository.getOrders();
+    _supplierNamesMap = _loadSupplierNames();
+  }
+
+  Future<Map<String, String>> _loadSupplierNames() async {
+    final suppliers = await widget.repository.getAllSuppliers();
+    final map = <String, String>{};
+    for (final supplier in suppliers) {
+      map[supplier.code] = supplier.name;
+    }
+    return map;
+  }
+
+  Future<void> _refreshPastOrders() async {
+    setState(() {
+      _pastOrdersFuture = widget.repository.getOrders();
+    });
+  }
+
+  Future<void> _handlePlaceOrder(CartProvider cartProvider) async {
+    if (cartProvider.items.isEmpty) return;
+
+    // Create orders for each cart item
+    for (final item in cartProvider.items) {
+      final product = Product(
+        id: item.productId,
+        name: item.productName,
+        unit: item.unit,
+        price: item.price,
+        category: '',
+      );
+      await widget.repository.createOrder(
+        product,
+        quantity: item.quantity,
+        supplierId: item.supplierId,
+      );
+    }
+
+    cartProvider.clear();
+    
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.orderPlaced),
+        backgroundColor: Colors.green[700],
+      ),
+    );
+
+    await _refreshPastOrders();
+  }
+
+  Future<void> _handleClearCart(CartProvider cartProvider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.clearCart),
+        content: Text('Are you sure you want to clear your cart?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.clearCart),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      cartProvider.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.cartCleared),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleReorder(ConsumerOrder order, CartProvider cartProvider) async {
+    // Mock: In a real app, fetch order items from repository
+    // For now, we'll create mock items based on order total
+    // This is a simplified version - in production, fetch actual order items
+    final mockItems = [
+      CartItem(
+        productId: 1,
+        productName: 'Product from Order #${order.id}',
+        supplierId: 1,
+        supplierCode: 'BMS001',
+        price: order.total / 3,
+        currency: 'KZT',
+        unit: 'kg',
+        quantity: 3,
+      ),
+    ];
+    
+    for (final item in mockItems) {
+      cartProvider.addItem(item);
+    }
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.itemsAddedFromOrder),
+        backgroundColor: Colors.green[700],
+      ),
+    );
+  }
+
+  Future<void> _showOrderPlacementModal(
+    BuildContext context,
+    CartProvider cartProvider,
+    List<CartItem> cartItems,
+  ) async {
+    if (cartItems.isEmpty) return;
+
+    // Get supplier info for delivery options
+    final supplierCodes = cartItems.map((item) => item.supplierCode).toSet().toList();
+    final supplierInfoMap = <String, Supplier>{};
+    
+    for (final code in supplierCodes) {
+      // Get supplier info - in real app, fetch from repository
+      // For now, we'll use mock data
+      try {
+        final products = await widget.repository.getProductsBySupplier(code);
+        if (products.isNotEmpty) {
+          final supplier = await widget.repository.getSupplierDetailsForProduct(
+            products.first.productId,
+            code,
+          );
+          if (supplier != null) {
+            supplierInfoMap[code] = supplier;
+          }
+        }
+      } catch (e) {
+        // Handle error
+      }
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _OrderPlacementModal(
+        cartItems: cartItems,
+        supplierInfoMap: supplierInfoMap,
+        repository: widget.repository,
+        onConfirm: (deliveryMethod, deliveryDate, address, note) async {
+          await _handlePlaceOrder(cartProvider);
+          if (context.mounted) {
+            Navigator.pop(context);
+          }
+        },
+      ),
+    );
+  }
+
+  Map<String, List<CartItem>> _groupItemsBySupplier(List<CartItem> items) {
+    final grouped = <String, List<CartItem>>{};
+    for (final item in items) {
+      if (!grouped.containsKey(item.supplierCode)) {
+        grouped[item.supplierCode] = [];
+      }
+      grouped[item.supplierCode]!.add(item);
+    }
+    return grouped;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    return Consumer<CartProvider>(
+      builder: (context, cartProvider, _) {
+        final cartItems = cartProvider.items;
+        final hasItems = cartItems.isNotEmpty;
+        final total = cartProvider.totalPrice;
+        final currency = cartItems.isNotEmpty ? cartItems.first.currency : 'KZT';
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Cart Section
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Cart Title
+                    Text(
+                      l10n.cart,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (hasItems) ...[
+                      // Group items by supplier
+                      FutureBuilder<Map<String, String>>(
+                        future: _supplierNamesMap,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          final supplierNames = snapshot.data ?? {};
+                          return Column(
+                            children: _buildSupplierGroups(
+                              context,
+                              theme,
+                              cartItems,
+                              cartProvider,
+                              supplierNames,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Total Sum
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l10n.totalSum,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${total.toStringAsFixed(0)} $currency',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Place Order Button
+                      FilledButton(
+                        onPressed: () => _showOrderPlacementModal(context, cartProvider, cartItems),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(l10n.placeOrder),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => _handleClearCart(cartProvider),
+                        child: Text(l10n.clearCart),
+                      ),
+                    ] else ...[
+                      // Empty cart state
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.shopping_cart_outlined,
+                                size: 80,
+                                color: Colors.green[300],
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                l10n.cartEmpty,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Browse the catalog to add products.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              if (widget.onNavigateToCatalog != null)
+                                FilledButton.icon(
+                                  onPressed: widget.onNavigateToCatalog,
+                                  icon: const Icon(Icons.store),
+                                  label: Text(l10n.browseCatalog),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.green[700],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Previous Orders Section (always shown)
+              _buildPreviousOrdersSection(context, theme, l10n, cartProvider),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildSupplierGroups(
+    BuildContext context,
+    ThemeData theme,
+    List<CartItem> cartItems,
+    CartProvider cartProvider,
+    Map<String, String> supplierNames,
+  ) {
+    final grouped = _groupItemsBySupplier(cartItems);
+    final widgets = <Widget>[];
+
+    grouped.forEach((supplierCode, items) {
+      // Supplier name header - left aligned
+      final supplierName = supplierNames[supplierCode] ?? supplierCode;
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(left: 0, bottom: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              supplierName,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface.withOpacity(0.8),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Products for this supplier
+      for (final item in items) {
+        widgets.add(
+          _buildCartItemCard(context, theme, item, cartProvider),
+        );
+      }
+
+      // Add spacing between supplier groups
+      if (supplierCode != grouped.keys.last) {
+        widgets.add(const SizedBox(height: 16));
+      }
+    });
+
+    return widgets;
+  }
+
+  Widget _buildCartItemCard(
+    BuildContext context,
+    ThemeData theme,
+    CartItem item,
+    CartProvider cartProvider,
+  ) {
+    final effectivePrice = item.discountPrice ?? item.price;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product Image
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.image,
+                    color: Colors.green[300],
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Product Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.productName,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      // Price and quantity under product name (no crossed-out price)
+                      Row(
+                        children: [
+                          Text(
+                            '${effectivePrice.toStringAsFixed(0)} $item.currency',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '× ${item.quantity}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Quantity selector (without line total on the right)
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              cartProvider.updateQuantity(
+                                item.productId,
+                                item.supplierCode,
+                                item.quantity - 1,
+                              );
+                            },
+                            icon: const Icon(Icons.remove_circle_outline),
+                            color: Colors.green[700],
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${item.quantity}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              cartProvider.updateQuantity(
+                                item.productId,
+                                item.supplierCode,
+                                item.quantity + 1,
+                              );
+                            },
+                            icon: const Icon(Icons.add_circle_outline),
+                            color: Colors.green[700],
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviousOrdersSection(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    CartProvider cartProvider,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Previous Orders Title
+          Text(
+            l10n.previousOrders,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Filter Tabs
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip(theme, l10n.pending, 'pending', l10n),
+                const SizedBox(width: 8),
+                _buildFilterChip(theme, l10n.inProcess, 'in_process', l10n),
+                const SizedBox(width: 8),
+                _buildFilterChip(theme, l10n.completed, 'completed', l10n),
+                const SizedBox(width: 8),
+                _buildFilterChip(theme, l10n.rejected, 'rejected', l10n),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<ConsumerOrder>>(
+            future: _pastOrdersFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      l10n.noPreviousOrders,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final allOrders = snapshot.data!;
+              final filteredOrders = _filterOrders(allOrders);
+              
+              if (filteredOrders.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      l10n.noPreviousOrders,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  ...filteredOrders.map((order) => _buildPastOrderCard(context, theme, l10n, order, cartProvider)),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(ThemeData theme, String label, String value, AppLocalizations l10n) {
+    final isSelected = _orderFilter == value;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _orderFilter = value;
+        });
+      },
+      selectedColor: Colors.green[100],
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.green[900] : theme.colorScheme.onSurface,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+    );
+  }
+
+  List<ConsumerOrder> _filterOrders(List<ConsumerOrder> orders) {
+    if (_orderFilter == 'all') return orders;
+    
+    return orders.where((order) {
+      final status = order.status.toLowerCase();
+      switch (_orderFilter) {
+        case 'pending':
+          return status == 'pending';
+        case 'in_process':
+          return status == 'in progress' || status == 'in_process';
+        case 'completed':
+          return status == 'completed' || status == 'delivered' || status == 'accepted';
+        case 'rejected':
+          return status == 'rejected' || status == 'cancelled';
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  Widget _buildPastOrderCard(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    ConsumerOrder order,
+    CartProvider cartProvider,
+  ) {
+    final statusColor = _getStatusColor(order.status);
+    final isExpanded = _expandedOrders[order.id] ?? false;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _expandedOrders[order.id] = !isExpanded;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Order #${order.id}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      order.status,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_formatDate(order.createdAt)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '12 ${l10n.items} · ${order.total.toStringAsFixed(0)} ₸',
+                style: theme.textTheme.bodyMedium,
+              ),
+              // Expanded order details
+              if (isExpanded) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                // Mock order items - in real app, fetch from repository
+                _buildOrderDetails(context, theme, l10n, order),
+              ],
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleReorder(order, cartProvider),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(l10n.reorder),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green[700],
+                    side: BorderSide(color: Colors.green[700]!),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderDetails(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    ConsumerOrder order,
+  ) {
+    // Mock order items - in real app, fetch from repository
+    final mockItems = [
+      {'name': 'Product 1', 'quantity': 3, 'price': 1500, 'total': 4500},
+      {'name': 'Product 2', 'quantity': 2, 'price': 2000, 'total': 4000},
+      {'name': 'Product 3', 'quantity': 1, 'price': 3000, 'total': 3000},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.orderDetails,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...mockItems.map((item) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${item['name']} × ${item['quantity']}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              Text(
+                '${item['total']} ₸',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        )),
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              l10n.totalSum,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              '${order.total.toStringAsFixed(0)} ₸',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.green[700],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+      case 'accepted':
+        return Colors.green;
+      case 'in progress':
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+// Order Placement Modal
+class _OrderPlacementModal extends StatefulWidget {
+  final List<CartItem> cartItems;
+  final Map<String, Supplier> supplierInfoMap;
+  final ConsumerRepository repository;
+  final Future<void> Function(String deliveryMethod, DateTime deliveryDate, String address, String? note) onConfirm;
+
+  const _OrderPlacementModal({
+    required this.cartItems,
+    required this.supplierInfoMap,
+    required this.repository,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_OrderPlacementModal> createState() => _OrderPlacementModalState();
+}
+
+class _OrderPlacementModalState extends State<_OrderPlacementModal> {
+  String? _selectedDeliveryMethod;
+  DateTime? _selectedDate;
+  final _addressController = TextEditingController();
+  final _noteController = TextEditingController();
+  final Map<String, List<String>> _availableMethods = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeDeliveryMethods();
+    _selectedDate = DateTime.now().add(const Duration(days: 1));
+  }
+
+  void _initializeDeliveryMethods() {
+    final grouped = <String, List<CartItem>>{};
+    for (final item in widget.cartItems) {
+      if (!grouped.containsKey(item.supplierCode)) {
+        grouped[item.supplierCode] = [];
+      }
+      grouped[item.supplierCode]!.add(item);
+    }
+
+    final methods = <String>{};
+    for (final entry in grouped.entries) {
+      final supplier = widget.supplierInfoMap[entry.key];
+      if (supplier != null) {
+        if (supplier.deliveryAvailability) methods.add('delivery');
+        if (supplier.pickupAvailability) methods.add('pickup');
+      }
+    }
+
+    _availableMethods['all'] = methods.toList();
+    if (_availableMethods['all']!.isNotEmpty) {
+      _selectedDeliveryMethod = _availableMethods['all']!.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                l10n.orderDetails,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Delivery Method
+              Text(
+                l10n.deliveryMethod,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...(_availableMethods['all'] ?? []).map((method) {
+                final isDelivery = method == 'delivery';
+                return RadioListTile<String>(
+                  title: Text(isDelivery ? l10n.delivery : l10n.pickup),
+                  value: method,
+                  groupValue: _selectedDeliveryMethod,
+                  onChanged: (value) {
+                    setState(() => _selectedDeliveryMethod = value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                );
+              }),
+              const SizedBox(height: 24),
+              // Delivery Date
+              Text(
+                l10n.deliveryDate,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setState(() => _selectedDate = date);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.outline),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedDate != null
+                            ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
+                            : l10n.deliveryDate,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      const Icon(Icons.calendar_today),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Address
+              Text(
+                l10n.address,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  hintText: l10n.address,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 24),
+              // Note (optional)
+              Text(
+                '${l10n.note} ${l10n.optional}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteController,
+                decoration: InputDecoration(
+                  hintText: l10n.note,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 32),
+              // Confirm Button
+              FilledButton(
+                onPressed: _selectedDeliveryMethod != null &&
+                        _selectedDate != null &&
+                        _addressController.text.isNotEmpty
+                    ? () async {
+                        await widget.onConfirm(
+                          _selectedDeliveryMethod!,
+                          _selectedDate!,
+                          _addressController.text,
+                          _noteController.text.isEmpty ? null : _noteController.text,
+                        );
+                      }
+                    : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: Text(l10n.confirmOrder),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

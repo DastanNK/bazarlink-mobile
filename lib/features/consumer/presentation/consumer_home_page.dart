@@ -2,15 +2,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_language.dart';
+import '../../../core/localization/localization_provider.dart';
 import '../../../core/routing/app_router.dart' show BuildContextX;
 import '../../../core/widgets/primary_button.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/entities/user.dart';
 import '../data/consumer_repository.dart';
+import 'pages/cart_page.dart';
 import 'pages/catalog_page.dart';
-import 'pages/orders_page.dart';
-import 'pages/links_page.dart';
+import 'pages/chats_page.dart';
 import 'pages/complaints_page.dart';
+import 'pages/links_page.dart';
 import 'pages/profile_page.dart';
 
 class ConsumerHomePage extends StatefulWidget {
@@ -28,26 +31,74 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final repository = context.read<ConsumerRepository>();
     final pages = [
-      CatalogPage(repository: context.read<ConsumerRepository>()),
-      OrdersPage(repository: context.read<ConsumerRepository>()),
-      LinksPage(repository: context.read<ConsumerRepository>()),
-      ComplaintsPage(repository: context.read<ConsumerRepository>()),
-      ProfilePage(user: widget.user),
+      CartPage(
+        repository: repository,
+        onNavigateToCatalog: () => setState(() => _index = 1),
+      ),
+      CatalogPage(
+        repository: repository,
+        onNavigateToCart: () => setState(() => _index = 0),
+      ),
+      LinksPage(repository: repository),
+      ComplaintsPage(repository: repository),
+      const ChatsPage(),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text('${l10n.consumerApp}'),
         actions: [
-          PrimaryButton(
-            label: l10n.logout,
+          // Language dropdown
+          Consumer<LocalizationProvider>(
+            builder: (context, langProvider, _) {
+              return PopupMenuButton<AppLanguage>(
+                icon: Icon(Icons.language, color: Colors.green[700]),
+                onSelected: (language) {
+                  langProvider.setLanguage(language);
+                },
+                itemBuilder: (context) => AppLanguage.values.map((lang) {
+                  return PopupMenuItem<AppLanguage>(
+                    value: lang,
+                    child: Row(
+                      children: [
+                        if (langProvider.language == lang)
+                          Icon(Icons.check, size: 18, color: Colors.green[700])
+                        else
+                          const SizedBox(width: 18),
+                        const SizedBox(width: 8),
+                        Text(lang.displayName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          // Profile icon
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              // Navigate to profile page
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(user: widget.user),
+                ),
+              );
+            },
+            tooltip: l10n.profile,
+          ),
+          // Logout button
+          IconButton(
+            icon: const Icon(Icons.logout),
             onPressed: () async {
               await context.read<AuthRepository>().logout();
               if (!mounted) return;
               Navigator.of(context)
                   .pushNamedAndRemoveUntil('/login', (route) => false);
             },
+            tooltip: l10n.logout,
           ),
         ],
       ),
@@ -56,11 +107,11 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
+          NavigationDestination(icon: const Icon(Icons.shopping_cart), label: l10n.cart),
           NavigationDestination(icon: const Icon(Icons.store), label: l10n.catalog),
-          NavigationDestination(icon: const Icon(Icons.list_alt), label: l10n.orders),
           NavigationDestination(icon: const Icon(Icons.link), label: l10n.links),
           NavigationDestination(icon: const Icon(Icons.report_problem), label: l10n.complaints),
-          NavigationDestination(icon: const Icon(Icons.person), label: l10n.profile),
+          NavigationDestination(icon: const Icon(Icons.chat), label: l10n.chats),
         ],
       ),
     );

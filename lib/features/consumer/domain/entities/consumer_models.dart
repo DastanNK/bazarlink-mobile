@@ -96,12 +96,34 @@ class LinkInfo {
   final String supplierName;
   final String status; // pending / accepted / rejected / blocked
   final String? supplierCode;
+  final String? city;
+  final String? logoUrl;
 
   LinkInfo({
     required this.id,
     required this.supplierName,
     required this.status,
     this.supplierCode,
+    this.city,
+    this.logoUrl,
+  });
+}
+
+class SupplierInfo {
+  final int id;
+  final String name;
+  final String code;
+  final String? city;
+  final String? logoUrl;
+  final String? status; // null if not linked, otherwise same as LinkInfo.status
+
+  SupplierInfo({
+    required this.id,
+    required this.name,
+    required this.code,
+    this.city,
+    this.logoUrl,
+    this.status,
   });
 }
 

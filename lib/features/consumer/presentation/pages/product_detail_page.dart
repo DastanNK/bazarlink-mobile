@@ -12,12 +12,14 @@ class ProductDetailPage extends StatefulWidget {
   final Product product;
   final ConsumerRepository repository;
   final String supplierCode;
+  final VoidCallback? onNavigateToCart;
 
   const ProductDetailPage({
     super.key,
     required this.product,
     required this.repository,
     required this.supplierCode,
+    this.onNavigateToCart,
   });
 
   @override
@@ -505,6 +507,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     FilledButton.icon(
                                       onPressed: () {
                                         Navigator.of(context).pop();
+                                        if (widget.onNavigateToCart != null) {
+                                          widget.onNavigateToCart!();
+                                        }
                                       },
                                       icon: const Icon(Icons.shopping_cart),
                                       label: Text(l10n.goToCart),

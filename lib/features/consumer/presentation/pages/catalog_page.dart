@@ -11,8 +11,13 @@ import 'links_page.dart';
 
 class CatalogPage extends StatefulWidget {
   final ConsumerRepository repository;
+  final VoidCallback? onNavigateToCart;
 
-  const CatalogPage({super.key, required this.repository});
+  const CatalogPage({
+    super.key,
+    required this.repository,
+    this.onNavigateToCart,
+  });
 
   @override
   State<CatalogPage> createState() => _CatalogPageState();
@@ -208,6 +213,7 @@ class _CatalogPageState extends State<CatalogPage> {
           product: product,
           repository: widget.repository,
           supplierCode: supplierProduct.supplierCode,
+          onNavigateToCart: widget.onNavigateToCart,
         ),
       ),
     );
@@ -291,16 +297,7 @@ class _CatalogPageState extends State<CatalogPage> {
             // Cart Summary Bar
             if (hasCartItems)
               InkWell(
-                onTap: () {
-                  // Navigate to cart/orders page
-                  // For now, just show a message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${l10n.seeCart} - ${cartProvider.itemCount} items'),
-                      backgroundColor: Colors.green[700],
-                    ),
-                  );
-                },
+                onTap: widget.onNavigateToCart,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
