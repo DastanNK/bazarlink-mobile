@@ -12,6 +12,7 @@ import '../data/sales_repository.dart';
 import 'pages/sales_consumers_page.dart';
 import 'pages/sales_complaints_page.dart';
 import 'pages/sales_chat_page.dart';
+import 'pages/sales_orders_page.dart';
 import 'pages/sales_profile_page.dart';
 
 class SalesHomePage extends StatefulWidget {
@@ -33,6 +34,7 @@ class _SalesHomePageState extends State<SalesHomePage> {
 
     final pages = [
       SalesConsumersPage(repository: repo),
+      SalesOrdersPage(repository: repo),
       SalesComplaintsPage(repository: repo),
       SalesChatPage(repository: repo),
     ];
@@ -80,6 +82,7 @@ class _SalesHomePageState extends State<SalesHomePage> {
             onDestinationSelected: (i) => setState(() => _index = i),
             destinations: [
               NavigationDestination(icon: const Icon(Icons.people), label: l10n.consumers),
+              NavigationDestination(icon: const Icon(Icons.shopping_cart), label: l10n.orders),
               NavigationDestination(icon: const Icon(Icons.report_problem), label: l10n.complaints),
               NavigationDestination(icon: const Icon(Icons.chat), label: l10n.chat),
             ],

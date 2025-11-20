@@ -43,6 +43,50 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
     }
   }
 
+  Future<void> _handleAcceptLink(SalesConsumer consumer) async {
+    try {
+      await widget.repository.acceptLink(consumer.linkId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.linkAccepted}: ${consumer.name}'),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.error}: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleRejectLink(SalesConsumer consumer) async {
+    try {
+      await widget.repository.rejectLink(consumer.linkId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.reject}: ${consumer.name}'),
+          backgroundColor: Colors.orange[700],
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.error}: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+
   Future<void> _handleAssignLink(SalesConsumer consumer) async {
     try {
       await widget.repository.assignLink(consumer.linkId);
@@ -58,7 +102,7 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text('${context.l10n.error}: $e'),
           backgroundColor: Colors.red[700],
         ),
       );
@@ -182,31 +226,34 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                         ],
                       ),
                       // Action buttons
-                      // Sales rep cannot accept links - only manager/owner can
-                      // Just show pending status
                       if (isPending) ...[
                         const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange[200]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  l10n.waitingForApproval,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.orange[900],
-                                  ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleAcceptLink(c),
+                                icon: const Icon(Icons.check),
+                                label: Text(l10n.accept),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green[700],
+                                  foregroundColor: Colors.white,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleRejectLink(c),
+                                icon: const Icon(Icons.close),
+                                label: Text(l10n.reject),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[700],
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ] else if (isAccepted && !isAssigned) ...[
                         const SizedBox(height: 12),

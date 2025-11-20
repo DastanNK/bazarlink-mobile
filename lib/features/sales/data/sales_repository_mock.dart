@@ -186,6 +186,22 @@ class MockSalesRepository implements SalesRepository {
   }
 
   @override
+  Future<void> rejectLink(int linkId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _consumers.indexWhere((c) => c.linkId == linkId);
+    if (idx != -1) {
+      _consumers[idx] = SalesConsumer(
+        id: _consumers[idx].id,
+        name: _consumers[idx].name,
+        status: 'rejected',
+        city: _consumers[idx].city,
+        linkId: _consumers[idx].linkId,
+        assignedSalesRepId: _consumers[idx].assignedSalesRepId,
+      );
+    }
+  }
+
+  @override
   Future<void> assignLink(int linkId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final idx = _consumers.indexWhere((c) => c.linkId == linkId);

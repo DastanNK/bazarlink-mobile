@@ -180,6 +180,18 @@ class ApiSalesRepository implements SalesRepository {
   }
 
   @override
+  Future<void> rejectLink(int linkId) async {
+    // Update link status to "rejected"
+    final body = {
+      'status': 'rejected',
+    };
+    final resp = await _client.put('/links/$linkId', body: body);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to reject link: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  @override
   Future<void> assignLink(int linkId) async {
     // Assign link to current sales representative
     final resp = await _client.post('/links/$linkId/assign');

@@ -19,5 +19,6 @@ abstract class SalesRepository {
   
   // Link management methods
   Future<void> acceptLink(int linkId);
+  Future<void> rejectLink(int linkId);
   Future<void> assignLink(int linkId);
 }

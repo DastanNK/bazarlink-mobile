@@ -29,6 +29,50 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
     });
   }
 
+  Future<void> _handleAcceptOrder(SalesOrder order) async {
+    try {
+      await widget.repository.acceptOrder(order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.orderAccepted}: ${order.orderNumber ?? 'Order #${order.id}'}'),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.error}: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleRejectOrder(SalesOrder order) async {
+    try {
+      await widget.repository.rejectOrder(order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.orderRejected}: ${order.orderNumber ?? 'Order #${order.id}'}'),
+          backgroundColor: Colors.orange[700],
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.error}: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'pending':
@@ -158,34 +202,38 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          // Sales rep cannot accept/reject orders - only manager/owner can
-                          // Just show pending status
-                          if (isPending) ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.orange[50],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange[200]!),
+                        ],
+                      ),
+                      if (isPending) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleAcceptOrder(o),
+                                icon: const Icon(Icons.check),
+                                label: Text(l10n.accept),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green[700],
+                                  foregroundColor: Colors.white,
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      l10n.waitingForApproval,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: Colors.orange[900],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleRejectOrder(o),
+                                icon: const Icon(Icons.close),
+                                label: Text(l10n.reject),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[700],
+                                  foregroundColor: Colors.white,
+                                ),
                               ),
                             ),
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
