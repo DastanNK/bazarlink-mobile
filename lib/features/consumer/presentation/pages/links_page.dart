@@ -1,10 +1,13 @@
 // lib/features/consumer/presentation/pages/links_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
+import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/consumer_models.dart';
+import '../cart_provider.dart';
 import 'product_detail_page.dart';
 
 class LinksPage extends StatefulWidget {
@@ -72,19 +75,39 @@ class _LinksPageState extends State<LinksPage> {
     );
 
     if (result != null && result['action'] == 'send') {
+      try {
       await widget.repository.requestLinkWithMessage(
         supplier.code,
         message: result['message'],
       );
-      _businessMessage = result['message'];
-      if (!mounted) return;
-      await _refresh();
+        _businessMessage = result['message'];
+        if (!mounted) return;
+        // Small delay to ensure API has processed the request
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+        // Force refresh both lists to get updated status
+        setState(() {
+          _myLinksFuture = widget.repository.getLinks();
+          _allSuppliersFuture = widget.repository.getAllSuppliers(
+            searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+          );
+        });
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${context.l10n.requestSent}: ${supplier.name}'),
           backgroundColor: Colors.green[700],
         ),
       );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
     }
   }
 
@@ -108,15 +131,26 @@ class _LinksPageState extends State<LinksPage> {
     );
 
     if (confirmed == true) {
-      await widget.repository.cancelLinkRequest(supplierCode);
-      if (!mounted) return;
-      await _refresh();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Request cancelled'),
-          backgroundColor: Colors.orange[700],
-        ),
-      );
+      try {
+        await widget.repository.cancelLinkRequest(supplierCode);
+        if (!mounted) return;
+        await _refresh();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.requestCancelled),
+            backgroundColor: Colors.orange[700],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${context.l10n.error}: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
     }
   }
 
@@ -206,6 +240,8 @@ class _LinksPageState extends State<LinksPage> {
                     setState(() {
                       _showMySuppliers = true;
                     });
+                    // Refresh suppliers when switching tabs
+                    _refreshSuppliers();
                   },
                   selectedColor: Colors.green[100],
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -233,6 +269,8 @@ class _LinksPageState extends State<LinksPage> {
                     setState(() {
                       _showMySuppliers = false;
                     });
+                    // Refresh suppliers when switching tabs
+                    _refreshSuppliers();
                   },
                   selectedColor: Colors.green[100],
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -1471,20 +1509,25 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                     ),
                     const SizedBox(height: 8),
                     FilledButton.icon(
-                      onPressed: () async {
-                        final prod = Product(
-                          id: product.productId,
-                          name: product.productName,
-                          unit: product.unit,
+                      onPressed: () {
+                        final cartProvider = context.read<CartProvider>();
+                        final cartItem = CartItem(
+                          productId: product.productId,
+                          productName: product.productName,
+                          supplierId: product.supplierId,
+                          supplierCode: product.supplierCode,
                           price: product.price,
-                          category: product.category,
+                          discountPrice: product.discountPrice,
+                          currency: product.currency,
+                          unit: product.unit,
                           imageUrl: product.imageUrl,
+                          quantity: 1,
                         );
-                        await widget.repository.createOrder(prod, supplierId: product.supplierId);
+                        cartProvider.addItem(cartItem);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('${product.productName} added to cart'),
+                              content: Text('${product.productName} ${l10n.addToCart.toLowerCase()}'),
                               backgroundColor: Colors.green[700],
                             ),
                           );

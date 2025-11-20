@@ -7,6 +7,7 @@ import '../../../../core/localization/localization_provider.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/domain/entities/user.dart';
+import '../cart_provider.dart';
 
 class ProfilePage extends StatelessWidget {
   final User user;
@@ -71,7 +72,7 @@ class ProfilePage extends StatelessWidget {
 
           // Settings Section
           Text(
-            'Settings',
+            l10n.settings,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -85,7 +86,7 @@ class ProfilePage extends StatelessWidget {
               builder: (context, langProvider, _) {
                 return ExpansionTile(
                   leading: Icon(Icons.language, color: Colors.green[700]),
-                  title: Text('Language / Тіл / Язык'),
+                  title: Text(l10n.languageLabelFull),
                   subtitle: Text(langProvider.language.displayName),
                   children: AppLanguage.values.map((lang) {
                     return RadioListTile<AppLanguage>(
@@ -108,7 +109,7 @@ class ProfilePage extends StatelessWidget {
 
           // Account Information
           Text(
-            'Account Information',
+            l10n.accountInformation,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -121,20 +122,20 @@ class ProfilePage extends StatelessWidget {
               children: [
                 ListTile(
                   leading: Icon(Icons.email, color: Colors.green[700]),
-                  title: Text('Email'),
+                  title: Text(l10n.email),
                   subtitle: Text(user.email),
                 ),
                 Divider(height: 1),
                 ListTile(
                   leading: Icon(Icons.badge, color: Colors.green[700]),
-                  title: Text('Role'),
+                  title: Text(l10n.role),
                   subtitle: Text(user.role.name),
                 ),
                 if (user.consumerId != null) ...[
                   Divider(height: 1),
                   ListTile(
                     leading: Icon(Icons.person_outline, color: Colors.green[700]),
-                    title: Text('Consumer ID'),
+                    title: Text(l10n.consumerId),
                     subtitle: Text('${user.consumerId}'),
                   ),
                 ],
@@ -146,7 +147,7 @@ class ProfilePage extends StatelessWidget {
 
           // About Section
           Text(
-            'About',
+            l10n.about,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -157,8 +158,8 @@ class ProfilePage extends StatelessWidget {
           Card(
             child: ListTile(
               leading: Icon(Icons.info_outline, color: Colors.green[700]),
-              title: Text('App Version'),
-              subtitle: Text('1.0.0'),
+              title: Text(l10n.appVersion),
+              subtitle: Text(l10n.version),
             ),
           ),
 
@@ -174,11 +175,11 @@ class ProfilePage extends StatelessWidget {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: Text(l10n.logout),
-                    content: Text('Are you sure you want to logout?'),
+                    content: Text(l10n.areYouSureLogout),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: Text('Cancel'),
+                        child: Text(l10n.cancel),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(context, true),
@@ -188,6 +189,8 @@ class ProfilePage extends StatelessWidget {
                   ),
                 );
                 if (confirmed == true && context.mounted) {
+                  // Clear cart before logout
+                  context.read<CartProvider>().clear();
                   await context.read<AuthRepository>().logout();
                   if (context.mounted) {
                     Navigator.of(context)

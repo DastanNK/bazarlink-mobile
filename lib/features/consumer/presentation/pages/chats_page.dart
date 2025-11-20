@@ -169,7 +169,7 @@ class _ChatsPageState extends State<ChatsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatDate(chat.lastMessageAt),
+                      _formatDate(chat.lastMessageAt, l10n),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
@@ -280,7 +280,7 @@ class _ChatsPageState extends State<ChatsPage> {
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Center(
                   child: Text(
-                    'No messages yet',
+                    l10n.noMessagesYet,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withOpacity(0.6),
                     ),
@@ -408,7 +408,7 @@ class _ChatsPageState extends State<ChatsPage> {
                                         Icon(Icons.receipt_long, size: 60, color: Colors.grey[600]),
                                         const SizedBox(height: 8),
                                         Text(
-                                          'Receipt #${message.id}',
+                                          '${l10n.receiptNumber} #${message.id}',
                                           style: theme.textTheme.bodyLarge,
                                         ),
                                       ],
@@ -546,6 +546,118 @@ class _ChatsPageState extends State<ChatsPage> {
                   ),
                   const SizedBox(height: 8),
                 ],
+                // Audio attachment
+                if (message.audioUrl != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isMe ? Colors.green[800] : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.audiotrack,
+                          color: isMe ? Colors.white : Colors.blue[700],
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Audio message',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Tap to play',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.play_arrow,
+                            color: isMe ? Colors.white : Colors.blue[700],
+                          ),
+                          onPressed: () {
+                            // TODO: Implement audio playback
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(l10n.audioPlaybackNotImplemented)),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                // File attachment
+                if (message.fileUrl != null) ...[
+                  InkWell(
+                    onTap: () {
+                      // TODO: Open/download file
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.fileDownloadNotImplemented)),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isMe ? Colors.green[800] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isMe ? Colors.green[600]! : Colors.grey[300]!,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.insert_drive_file,
+                            color: isMe ? Colors.white : Colors.grey[700],
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.fileName ?? 'File attachment',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'Tap to download',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.download,
+                            color: isMe ? Colors.white70 : Colors.grey[600],
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 // Message text
                 if (message.text.isNotEmpty)
                   Text(
@@ -596,7 +708,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'No chats yet. Send a complaint or start a conversation with a linked supplier.',
+                  l10n.noChatsYet,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withOpacity(0.7),
                   ),
@@ -605,7 +717,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 if (hasLinkedSuppliers) ...[
                   const SizedBox(height: 32),
                   Text(
-                    'Start a chat with:',
+                    l10n.startChatWith,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -700,18 +812,21 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, AppLocalizations l10n) {
     final now = DateTime.now();
     final difference = now.difference(date);
 
     if (difference.inDays == 0) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays == 1) {
-      return 'Yesterday';
+      return l10n.yesterday;
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return '${difference.inDays} ${l10n.daysAgo}';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        l10n.jan, l10n.feb, l10n.mar, l10n.apr, l10n.may, l10n.jun,
+        l10n.jul, l10n.aug, l10n.sep, l10n.oct, l10n.nov, l10n.dec
+      ];
       return '${date.day} ${months[date.month - 1]}';
     }
   }
@@ -913,7 +1028,7 @@ class _MessageInputWidgetState extends State<_MessageInputWidget> {
                         Icon(Icons.shopping_bag, size: 16, color: Colors.blue[700]),
                         const SizedBox(width: 4),
                         Text(
-                          _selectedProductName ?? 'Product',
+                          _selectedProductName ?? l10n.product,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: Colors.blue[700],
                           ),

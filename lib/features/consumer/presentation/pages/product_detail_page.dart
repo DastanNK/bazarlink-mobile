@@ -116,6 +116,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       discountPrice: _supplier!.discountPrice,
       currency: _supplier!.currency,
       unit: _supplier!.unit,
+      imageUrl: widget.product.imageUrl,
       quantity: _quantity,
     );
     

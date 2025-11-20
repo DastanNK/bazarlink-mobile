@@ -3,5 +3,5 @@ enum UserRole {
   consumer,
   owner,
   manager,
-  salesRepresentative,
+  sales_representative,
 }

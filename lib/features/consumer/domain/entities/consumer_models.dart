@@ -77,21 +77,53 @@ class SupplierProduct {
   });
 }
 
+class OrderItem {
+  final int id;
+  final int productId;
+  final double quantity;
+  final double unitPrice;
+  final double totalPrice;
+
+  OrderItem({
+    required this.id,
+    required this.productId,
+    required this.quantity,
+    required this.unitPrice,
+    required this.totalPrice,
+  });
+}
+
 class ConsumerOrder {
   final int id;
   final DateTime createdAt;
   final String status;
   final double total;
+  final double subtotal;
+  final String currency;
+  final String? orderNumber;
   final int? supplierId;
   final String? supplierCode;
+  final String? deliveryMethod;
+  final String? deliveryAddress;
+  final DateTime? deliveryDate;
+  final String? notes;
+  final List<OrderItem> items;
 
   ConsumerOrder({
     required this.id,
     required this.createdAt,
     required this.status,
     required this.total,
+    required this.subtotal,
+    this.currency = 'KZT',
+    this.orderNumber,
     this.supplierId,
     this.supplierCode,
+    this.deliveryMethod,
+    this.deliveryAddress,
+    this.deliveryDate,
+    this.notes,
+    this.items = const [],
   });
 }
 
@@ -202,6 +234,9 @@ class ChatMessage {
   final bool isFromConsumer;
   final DateTime createdAt;
   final String? imageUrl;
+  final String? fileUrl; // File attachment URL
+  final String? audioUrl; // Audio attachment URL
+  final String? fileName; // File name for display
   final String? receiptUrl; // Receipt attachment
   final int? productId; // Product link
   final String? productName; // Product name for display
@@ -215,6 +250,9 @@ class ChatMessage {
     required this.isFromConsumer,
     required this.createdAt,
     this.imageUrl,
+    this.fileUrl,
+    this.audioUrl,
+    this.fileName,
     this.receiptUrl,
     this.productId,
     this.productName,

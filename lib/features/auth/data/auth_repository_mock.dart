@@ -1,6 +1,7 @@
 // lib/features/auth/data/auth_repository_mock.dart
 import 'dart:async';
 
+import '../domain/entities/consumer_registration.dart';
 import '../domain/entities/user.dart';
 import '../domain/value_objects.dart';
 import 'auth_repository.dart';
@@ -13,18 +14,11 @@ class MockAuthRepository implements AuthRepository {
     await Future.delayed(const Duration(milliseconds: 600));
 
     // простая заглушка: роль определяется по email
-    if (email == 'consumer@test.com') {
-      _currentUser = User(
-        id: 1,
-        email: email,
-        role: UserRole.consumer,
-        consumerId: 100,
-      );
-    } else if (email == 'sales@test.com') {
+    if (email == 'sales@test.com') {
       _currentUser = User(
         id: 2,
         email: email,
-        role: UserRole.salesRepresentative,
+        role: UserRole.sales_representative,
         supplierId: 200,
       );
     } else {
@@ -36,6 +30,21 @@ class MockAuthRepository implements AuthRepository {
       );
     }
 
+    return _currentUser!;
+  }
+
+  @override
+  Future<User> registerConsumer(ConsumerSignUpData data) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    
+    // Create a mock consumer user
+    _currentUser = User(
+      id: DateTime.now().millisecondsSinceEpoch,
+      email: data.email,
+      role: UserRole.consumer,
+      consumerId: (_currentUser?.consumerId ?? 100) + 1,
+    );
+    
     return _currentUser!;
   }
 

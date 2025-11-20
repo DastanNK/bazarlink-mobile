@@ -16,7 +16,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _emailCtrl = TextEditingController(text: 'consumer@test.com');
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController(text: 'password');
   bool _isLoading = false;
   String? _error;
@@ -90,12 +90,11 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: _onLoginPressed,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Test users:\n'
-              'consumer@test.com\n'
-              'sales@test.com\n'
-              'any other → owner',
-              textAlign: TextAlign.center,
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/signup');
+              },
+              child: Text(l10n.consumerSignupTitle),
             ),
           ],
         ),

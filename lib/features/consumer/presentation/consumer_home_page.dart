@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../core/localization/app_language.dart';
 import '../../../core/localization/localization_provider.dart';
 import '../../../core/routing/app_router.dart' show BuildContextX;
+import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/entities/user.dart';
 import '../data/consumer_repository.dart';
+import 'cart_provider.dart';
 import 'pages/cart_page.dart';
 import 'pages/catalog_page.dart';
 import 'pages/chats_page.dart';
@@ -101,15 +103,20 @@ class _ConsumerHomePageState extends State<ConsumerHomePage> {
         ],
       ),
       body: pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          NavigationDestination(icon: const Icon(Icons.shopping_cart), label: l10n.cart),
-          NavigationDestination(icon: const Icon(Icons.store), label: l10n.catalog),
-          NavigationDestination(icon: const Icon(Icons.link), label: l10n.links),
-          NavigationDestination(icon: const Icon(Icons.chat), label: l10n.chats),
-        ],
+      bottomNavigationBar: Consumer<LocalizationProvider>(
+        builder: (context, langProvider, _) {
+          final l10n = context.l10n;
+          return NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: [
+              NavigationDestination(icon: const Icon(Icons.shopping_cart), label: l10n.cart),
+              NavigationDestination(icon: const Icon(Icons.store), label: l10n.catalog),
+              NavigationDestination(icon: const Icon(Icons.link), label: l10n.links),
+              NavigationDestination(icon: const Icon(Icons.chat), label: l10n.chats),
+            ],
+          );
+        },
       ),
     );
   }

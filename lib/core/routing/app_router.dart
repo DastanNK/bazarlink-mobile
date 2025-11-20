@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/localization/app_localizations.dart';
 import '../../core/localization/localization_provider.dart';
+import '../../features/auth/presentation/consumer_sign_up_page.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/settings/presentation/language_selection_page.dart';
 import '../../features/shell/presentation/role_based_home_page.dart';
@@ -11,6 +12,7 @@ import '../../features/shell/presentation/role_based_home_page.dart';
 class AppRouter {
   static const languageSelection = '/';
   static const login = '/login';
+  static const signup = '/signup';
   static const home = '/home';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -22,6 +24,10 @@ class AppRouter {
       case login:
         return MaterialPageRoute(
           builder: (_) => const LoginPage(),
+        );
+      case signup:
+        return MaterialPageRoute(
+          builder: (_) => const ConsumerSignUpPage(),
         );
       case home:
         return MaterialPageRoute(

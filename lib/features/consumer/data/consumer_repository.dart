@@ -1,4 +1,5 @@
 // lib/features/consumer/data/consumer_repository.dart
+import '../domain/entities/cart_item.dart';
 import '../domain/entities/consumer_models.dart';
 
 abstract class ConsumerRepository {
@@ -7,7 +8,14 @@ abstract class ConsumerRepository {
   Future<List<LinkInfo>> getLinks();
   Future<List<Complaint>> getComplaints();
 
-  Future<void> createOrder(Product product, {int quantity = 1, int supplierId = 0});
+  Future<void> createOrder(
+    List<CartItem> items,
+    int supplierId,
+    String deliveryMethod,
+    DateTime deliveryDate,
+    String deliveryAddress, {
+    String? notes,
+  });
   Future<void> requestLink(String supplierCode);
   Future<void> createComplaint(int orderId, String title, String description, {String? imageUrl, int? supplierId, String? supplierCode});
   

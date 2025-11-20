@@ -18,5 +18,5 @@ class User {
   });
 
   bool get isConsumer => role == UserRole.consumer;
-  bool get isSalesRep => role == UserRole.salesRepresentative;
+  bool get isSalesRep => role == UserRole.sales_representative;
 }

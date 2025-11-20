@@ -47,7 +47,7 @@ class RoleBasedHomePage extends StatelessWidget {
         }
 
         // SalesRep → SalesHomePage
-        if (user.role == UserRole.salesRepresentative) {
+        if (user.role == UserRole.sales_representative) {
           return SalesHomePage(user: user);
         }
 
@@ -58,8 +58,7 @@ class RoleBasedHomePage extends StatelessWidget {
           ),
           body: Center(
             child: Text(
-              'Role ${user.role} UI is not implemented yet.\n'
-              'Try consumer@test.com or sales@test.com.',
+              'Role ${user.role} UI is not implemented yet.',
               textAlign: TextAlign.center,
             ),
           ),

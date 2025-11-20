@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/localization/localization_provider.dart';
+import 'core/network/api_client.dart';
 import 'core/routing/app_router.dart';
 import 'features/auth/data/auth_repository.dart';
-import 'features/auth/data/auth_repository_mock.dart';
+import 'features/auth/data/auth_repository_api.dart';
 import 'features/consumer/data/consumer_repository.dart';
-import 'features/consumer/data/consumer_repository_mock.dart';
+import 'features/consumer/data/consumer_repository_api.dart';
 import 'features/consumer/presentation/cart_provider.dart';
 import 'features/sales/data/sales_repository.dart';
-import 'features/sales/data/sales_repository_mock.dart';
+import 'features/sales/data/sales_repository_api.dart';
 
 class SCPApp extends StatelessWidget {
   const SCPApp({super.key});
@@ -21,9 +22,30 @@ class SCPApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LocalizationProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        Provider<AuthRepository>(create: (_) => MockAuthRepository()),
-        Provider<ConsumerRepository>(create: (_) => MockConsumerRepository()),
-        Provider<SalesRepository>(create: (_) => MockSalesRepository()),
+        // API Client
+        Provider<ApiClient>(
+          create: (_) => ApiClient(),
+        ),
+        // Auth Repository
+        Provider<AuthRepository>(
+          create: (ctx) => ApiAuthRepository(
+            ctx.read<ApiClient>(),
+          ),
+        ),
+        // Consumer Repository
+        Provider<ConsumerRepository>(
+          create: (ctx) => ApiConsumerRepository(
+            ctx.read<ApiClient>(),
+            ctx.read<AuthRepository>(),
+          ),
+        ),
+        // Sales Repository
+        Provider<SalesRepository>(
+          create: (ctx) => ApiSalesRepository(
+            ctx.read<ApiClient>(),
+            ctx.read<AuthRepository>(),
+          ),
+        ),
       ],
       child: Consumer<LocalizationProvider>(
         builder: (context, langProvider, _) {

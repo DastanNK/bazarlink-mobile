@@ -1,5 +1,6 @@
 // lib/features/consumer/data/consumer_repository_mock.dart
 import 'dart:async';
+import '../domain/entities/cart_item.dart';
 import '../domain/entities/consumer_models.dart';
 import 'consumer_repository.dart';
 
@@ -21,16 +22,27 @@ class MockConsumerRepository implements ConsumerRepository {
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       status: 'accepted',
       total: 45000,
+      subtotal: 45000,
+      currency: 'KZT',
       supplierId: 1,
       supplierCode: 'BMS001',
+      items: [
+        OrderItem(id: 1, productId: 1, quantity: 30, unitPrice: 1500, totalPrice: 45000),
+      ],
     ),
     ConsumerOrder(
       id: 2,
       createdAt: DateTime.now(),
       status: 'pending',
       total: 12000,
+      subtotal: 12000,
+      currency: 'KZT',
       supplierId: 2,
       supplierCode: 'VL001',
+      items: [
+        OrderItem(id: 2, productId: 2, quantity: 10, unitPrice: 700, totalPrice: 7000),
+        OrderItem(id: 3, productId: 6, quantity: 12.5, unitPrice: 400, totalPrice: 5000),
+      ],
     ),
   ];
 
@@ -397,7 +409,14 @@ class MockConsumerRepository implements ConsumerRepository {
   }
 
   @override
-  Future<void> createOrder(Product product, {int quantity = 1, int supplierId = 0}) async {
+  Future<void> createOrder(
+    List<CartItem> items,
+    int supplierId,
+    String deliveryMethod,
+    DateTime deliveryDate,
+    String deliveryAddress, {
+    String? notes,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 300));
     // Get supplier code from supplierId (mock implementation)
     String? supplierCode;
@@ -409,14 +428,33 @@ class MockConsumerRepository implements ConsumerRepository {
       supplierCode = supplier.code.isEmpty ? null : supplier.code;
     }
     
+    final total = items.fold(0.0, (sum, item) => sum + item.totalPrice);
+    final orderItems = items.asMap().entries.map((entry) {
+      final item = entry.value;
+      return OrderItem(
+        id: entry.key + 1,
+        productId: item.productId,
+        quantity: item.quantity.toDouble(),
+        unitPrice: item.discountPrice ?? item.price,
+        totalPrice: item.totalPrice,
+      );
+    }).toList();
+    
     _orders.add(
       ConsumerOrder(
         id: _orders.length + 1,
         createdAt: DateTime.now(),
         status: 'pending',
-        total: product.price * quantity,
+        total: total,
+        subtotal: total,
+        currency: items.isNotEmpty ? items.first.currency : 'KZT',
         supplierId: supplierId > 0 ? supplierId : null,
         supplierCode: supplierCode,
+        deliveryMethod: deliveryMethod,
+        deliveryAddress: deliveryAddress,
+        deliveryDate: deliveryDate,
+        notes: notes,
+        items: orderItems,
       ),
     );
   }

@@ -1,6 +1,10 @@
 // lib/features/sales/presentation/pages/sales_chat_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/routing/app_router.dart' show BuildContextX;
+import '../../../auth/data/auth_repository.dart';
 import '../../data/sales_repository.dart';
 import '../../domain/entities/sales_models.dart';
 
@@ -14,114 +18,409 @@ class SalesChatPage extends StatefulWidget {
 }
 
 class _SalesChatPageState extends State<SalesChatPage> {
-  int _selectedConsumerId = 1;
-  late Future<List<SalesMessage>> _future;
+  late Future<List<SalesConsumer>> _consumersFuture;
+  int? _selectedLinkId;
+  late Future<List<SalesMessage>> _messagesFuture;
   final _textCtrl = TextEditingController();
+  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
-    _future = widget.repository.getChatMessages(_selectedConsumerId);
+    _consumersFuture = widget.repository.getLinkedConsumers();
+    _messagesFuture = Future.value(<SalesMessage>[]);
+    _loadCurrentUser();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadCurrentUser() async {
+    final authRepo = Provider.of<AuthRepository>(context, listen: false);
+    final user = await authRepo.getCurrentUser();
+    if (user != null) {
+      setState(() {
+        _currentUserId = user.id;
+      });
+    }
+  }
+
+  Future<void> _loadMessages() async {
+    if (_selectedLinkId == null) return;
     setState(() {
-      _future = widget.repository.getChatMessages(_selectedConsumerId);
+      _messagesFuture = widget.repository.getChatMessages(_selectedLinkId!);
+    });
+  }
+
+  Future<void> _refreshConsumers() async {
+    setState(() {
+      _consumersFuture = widget.repository.getLinkedConsumers();
+      if (_selectedLinkId != null) {
+        _loadMessages();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // простейший выбор consumerId
-        Padding(
-          padding: const EdgeInsets.all(8),
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    
+    return FutureBuilder<List<SalesConsumer>>(
+      future: _consumersFuture,
+      builder: (context, consumersSnapshot) {
+        if (consumersSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (!consumersSnapshot.hasData || consumersSnapshot.data!.isEmpty) {
+          return _buildEmptyChatsState(context, theme, l10n);
+        }
+        
+        // Filter to only assigned consumers
+        final assignedConsumers = consumersSnapshot.data!
+            .where((c) => c.assignedSalesRepId != null)
+            .toList();
+        
+        if (assignedConsumers.isEmpty) {
+          return _buildEmptyChatsState(context, theme, l10n);
+        }
+        
+        // If a chat is selected, show chat detail
+        if (_selectedLinkId != null) {
+          final selectedConsumer = assignedConsumers.firstWhere(
+            (c) => c.linkId == _selectedLinkId,
+            orElse: () => assignedConsumers.first,
+          );
+          return _buildChatDetail(context, theme, l10n, selectedConsumer);
+        }
+        
+        // Otherwise, show list of chats
+        return RefreshIndicator(
+          onRefresh: _refreshConsumers,
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: assignedConsumers.length,
+            itemBuilder: (context, index) {
+              final consumer = assignedConsumers[index];
+              return _buildChatCard(context, theme, l10n, consumer);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyChatsState(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 80,
+              color: Colors.green[300],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              l10n.chat,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.noAssignedConsumers,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatCard(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    SalesConsumer consumer,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedLinkId = consumer.linkId;
+            _loadMessages();
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Text('Consumer ID:'),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _selectedConsumerId,
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('1')),
-                  DropdownMenuItem(value: 2, child: Text('2')),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => _selectedConsumerId = v);
-                  _load();
-                },
+              // Consumer icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.green[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.restaurant,
+                  color: Colors.green[700],
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Consumer info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      consumer.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (consumer.city != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            consumer.city!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChatDetail(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    SalesConsumer consumer,
+  ) {
+    return Column(
+      children: [
+        // Chat header
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+            ),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _selectedLinkId = null;
+                    _refreshConsumers();
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              // Consumer icon
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.green[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.restaurant,
+                  color: Colors.green[700],
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      consumer.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (consumer.city != null)
+                      Text(
+                        consumer.city!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Messages
         Expanded(
           child: FutureBuilder<List<SalesMessage>>(
-            future: _future,
+            future: _messagesFuture,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final msgs = snapshot.data!;
-              return ListView.builder(
-                reverse: true,
-                itemCount: msgs.length,
-                itemBuilder: (_, i) {
-                  final m = msgs[msgs.length - 1 - i];
-                  final isMe = m.from == 'You';
-                  return Align(
-                    alignment:
-                        isMe ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isMe
-                            ? Colors.blue.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('${m.from}: ${m.text}'),
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Center(
+                  child: Text(
+                    l10n.noMessagesYet,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
                     ),
-                  );
+                  ),
+                );
+              }
+              final messages = snapshot.data!;
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  return _buildMessageBubble(context, theme, message);
                 },
               );
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _textCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Type message...',
-                    border: OutlineInputBorder(),
+        // Message input
+        _buildMessageInput(context, theme, l10n),
+      ],
+    );
+  }
+
+  Widget _buildMessageBubble(BuildContext context, ThemeData theme, SalesMessage message) {
+    final isMe = _currentUserId != null && message.senderId == _currentUserId;
+    
+    return Column(
+      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isMe ? Colors.green[700] : theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Message text
+                if (message.text.isNotEmpty)
+                  Text(
+                    message.text,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                // Timestamp
+                Text(
+                  '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.send),
-                onPressed: () async {
-                  if (_textCtrl.text.trim().isEmpty) return;
-                  await widget.repository
-                      .sendMessage(_selectedConsumerId, _textCtrl.text.trim());
-                  _textCtrl.clear();
-                  if (!mounted) return;
-                  await _load();
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildMessageInput(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _textCtrl,
+              decoration: InputDecoration(
+                hintText: l10n.typeMessage,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.send, color: Colors.green[700]),
+            onPressed: () async {
+              if (_textCtrl.text.trim().isEmpty || _selectedLinkId == null) return;
+              try {
+                await widget.repository
+                    .sendMessage(_selectedLinkId!, _textCtrl.text.trim());
+                _textCtrl.clear();
+                if (!mounted) return;
+                await _loadMessages();
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${l10n.error}: $e'),
+                    backgroundColor: Colors.red[700],
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
   }
 }

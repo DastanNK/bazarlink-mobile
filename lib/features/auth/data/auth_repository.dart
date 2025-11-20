@@ -1,4 +1,5 @@
 // lib/features/auth/data/auth_repository.dart
+import '../domain/entities/consumer_registration.dart';
 import '../domain/entities/user.dart';
 
 abstract class AuthRepository {
@@ -6,6 +7,8 @@ abstract class AuthRepository {
     required String email,
     required String password,
   });
+
+  Future<User> registerConsumer(ConsumerSignUpData data);
 
   Future<User?> getCurrentUser();
 

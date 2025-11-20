@@ -51,23 +51,45 @@ class _CartPageState extends State<CartPage> {
     });
   }
 
-  Future<void> _handlePlaceOrder(CartProvider cartProvider) async {
+  Future<void> _handlePlaceOrder(
+    CartProvider cartProvider,
+    String deliveryMethod,
+    DateTime deliveryDate,
+    String deliveryAddress, {
+    String? notes,
+  }) async {
     if (cartProvider.items.isEmpty) return;
 
-    // Create orders for each cart item
-    for (final item in cartProvider.items) {
-      final product = Product(
-        id: item.productId,
-        name: item.productName,
-        unit: item.unit,
-        price: item.price,
-        category: '',
-      );
-      await widget.repository.createOrder(
-        product,
-        quantity: item.quantity,
-        supplierId: item.supplierId,
-      );
+    // Group items by supplier - create one order per supplier
+    final grouped = _groupItemsBySupplier(cartProvider.items);
+    
+    for (final entry in grouped.entries) {
+      final items = entry.value;
+      
+      if (items.isEmpty) continue;
+      
+      // Get supplier ID from first item
+      final supplierId = items.first.supplierId;
+      
+      try {
+        await widget.repository.createOrder(
+          items,
+          supplierId,
+          deliveryMethod,
+          deliveryDate,
+          deliveryAddress,
+          notes: notes,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating order: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+        return; // Stop if one order fails
+      }
     }
 
     cartProvider.clear();
@@ -89,11 +111,11 @@ class _CartPageState extends State<CartPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.clearCart),
-        content: Text('Are you sure you want to clear your cart?'),
+        content: Text(context.l10n.areYouSureClearCart),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -128,6 +150,7 @@ class _CartPageState extends State<CartPage> {
         price: order.total / 3,
         currency: 'KZT',
         unit: 'kg',
+        imageUrl: null,
         quantity: 3,
       ),
     ];
@@ -149,7 +172,7 @@ class _CartPageState extends State<CartPage> {
     if (order.supplierId == null || order.supplierCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Supplier information is missing for this order'),
+            content: Text(context.l10n.supplierInfoMissing),
           backgroundColor: Colors.red[700],
         ),
       );
@@ -217,7 +240,13 @@ class _CartPageState extends State<CartPage> {
         supplierInfoMap: supplierInfoMap,
         repository: widget.repository,
         onConfirm: (deliveryMethod, deliveryDate, address, note) async {
-          await _handlePlaceOrder(cartProvider);
+          await _handlePlaceOrder(
+            cartProvider,
+            deliveryMethod,
+            deliveryDate,
+            address,
+            notes: note,
+          );
           if (context.mounted) {
             Navigator.pop(context);
           }
@@ -353,7 +382,7 @@ class _CartPageState extends State<CartPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Browse the catalog to add products.',
+                                context.l10n.browseCatalogToAddProducts,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurface.withOpacity(0.7),
                                 ),
@@ -460,11 +489,24 @@ class _CartPageState extends State<CartPage> {
                     color: Colors.green[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    Icons.image,
-                    color: Colors.green[300],
-                    size: 40,
-                  ),
+                  child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            item.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.image,
+                              color: Colors.green[300],
+                              size: 40,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.image,
+                          color: Colors.green[300],
+                          size: 40,
+                        ),
                 ),
                 const SizedBox(width: 12),
                 // Product Info
@@ -485,7 +527,7 @@ class _CartPageState extends State<CartPage> {
                       Row(
                         children: [
                           Text(
-                            '${effectivePrice.toStringAsFixed(0)} $item.currency',
+                            '${effectivePrice.toStringAsFixed(0)} ${item.currency}',
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: Colors.green[700],
                               fontWeight: FontWeight.bold,
@@ -671,12 +713,12 @@ class _CartPageState extends State<CartPage> {
     if (_orderFilter == 'all') return orders;
     
     return orders.where((order) {
-      final status = order.status.toLowerCase();
+      final status = order.status.toLowerCase().replaceAll(' ', '_');
       switch (_orderFilter) {
         case 'pending':
           return status == 'pending';
         case 'in_process':
-          return status == 'in progress' || status == 'in_process';
+          return status == 'in_progress' || status == 'in_process' || status == 'in progress';
         case 'completed':
           return status == 'completed' || status == 'delivered' || status == 'accepted';
         case 'rejected':
@@ -751,7 +793,7 @@ class _CartPageState extends State<CartPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                '12 ${l10n.items} · ${order.total.toStringAsFixed(0)} ₸',
+                '${order.items.length} ${l10n.items} · ${order.total.toStringAsFixed(0)} ${order.currency}',
                 style: theme.textTheme.bodyMedium,
               ),
               // Expanded order details
@@ -796,13 +838,6 @@ class _CartPageState extends State<CartPage> {
     AppLocalizations l10n,
     ConsumerOrder order,
   ) {
-    // Mock order items - in real app, fetch from repository
-    final mockItems = [
-      {'name': 'Product 1', 'quantity': 3, 'price': 1500, 'total': 4500},
-      {'name': 'Product 2', 'quantity': 2, 'price': 2000, 'total': 4000},
-      {'name': 'Product 3', 'quantity': 1, 'price': 3000, 'total': 3000},
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -813,26 +848,34 @@ class _CartPageState extends State<CartPage> {
           ),
         ),
         const SizedBox(height: 12),
-        ...mockItems.map((item) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  '${item['name']} × ${item['quantity']}',
-                  style: theme.textTheme.bodyMedium,
+        if (order.items.isEmpty)
+          Text(
+            'No items in this order',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+            ),
+          )
+        else
+          ...order.items.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Product #${item.productId} × ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 2)}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ),
-              ),
-              Text(
-                '${item['total']} ₸',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+                Text(
+                  '${item.totalPrice.toStringAsFixed(0)} ${order.currency}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        )),
+              ],
+            ),
+          )),
         const SizedBox(height: 12),
         const Divider(),
         const SizedBox(height: 12),
@@ -846,7 +889,7 @@ class _CartPageState extends State<CartPage> {
               ),
             ),
             Text(
-              '${order.total.toStringAsFixed(0)} ₸',
+              '${order.total.toStringAsFixed(0)} ${order.currency}',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.green[700],
@@ -910,6 +953,11 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
     super.initState();
     _initializeDeliveryMethods();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    _addressController.addListener(_updateButtonState);
+  }
+
+  void _updateButtonState() {
+    setState(() {});
   }
 
   void _initializeDeliveryMethods() {
@@ -938,6 +986,7 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
 
   @override
   void dispose() {
+    _addressController.removeListener(_updateButtonState);
     _addressController.dispose();
     _noteController.dispose();
     super.dispose();

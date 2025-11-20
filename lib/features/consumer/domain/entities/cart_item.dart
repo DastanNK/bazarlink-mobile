@@ -8,6 +8,7 @@ class CartItem {
   final double? discountPrice;
   final String currency;
   final String unit;
+  final String? imageUrl;
   int quantity;
 
   CartItem({
@@ -19,6 +20,7 @@ class CartItem {
     this.discountPrice,
     required this.currency,
     required this.unit,
+    this.imageUrl,
     required this.quantity,
   });
 
