@@ -397,6 +397,39 @@ class MockConsumerRepository implements ConsumerRepository {
   }
 
   @override
+  Future<List<OrderItem>> getOrderItems(int orderId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final order = _orders.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => ConsumerOrder(
+        id: orderId,
+        createdAt: DateTime.now(),
+        status: 'pending',
+        total: 0,
+        subtotal: 0,
+        items: [],
+      ),
+    );
+    return order.items;
+  }
+
+  @override
+  Future<String> getProductName(int productId) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    final product = _products.firstWhere(
+      (p) => p.id == productId,
+      orElse: () => Product(
+        id: productId,
+        name: 'Unknown Product',
+        unit: 'piece',
+        category: 'Unknown',
+        price: 0,
+      ),
+    );
+    return product.name;
+  }
+
+  @override
   Future<List<LinkInfo>> getLinks() async {
     await Future.delayed(const Duration(milliseconds: 400));
     return _links;

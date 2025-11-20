@@ -154,6 +154,53 @@ class _LinksPageState extends State<LinksPage> {
     }
   }
 
+  Future<void> _handleUnlink(BuildContext context, SupplierInfo supplier) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlink Supplier'),
+        content: Text('Are you sure you want to unlink from ${supplier.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red[700],
+            ),
+            child: const Text('Unlink'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await widget.repository.cancelLinkRequest(supplier.code);
+        if (!mounted) return;
+        await _refresh();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unlinked from ${supplier.name}'),
+            backgroundColor: Colors.orange[700],
+          ),
+        );
+        Navigator.pop(context); // Close business details page
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error unlinking: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
   void _navigateToBusinessDetails(SupplierInfo supplier) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -162,6 +209,7 @@ class _LinksPageState extends State<LinksPage> {
           repository: widget.repository,
           onRequestLink: () => _handleRequestLink(supplier),
           onCancelRequest: () => _handleCancelRequest(supplier.code),
+          onUnlink: () => _handleUnlink(context, supplier),
         ),
       ),
     );
@@ -632,6 +680,7 @@ class BusinessDetailsPage extends StatefulWidget {
   final ConsumerRepository repository;
   final VoidCallback onRequestLink;
   final VoidCallback onCancelRequest;
+  final VoidCallback? onUnlink;
 
   const BusinessDetailsPage({
     super.key,
@@ -639,6 +688,7 @@ class BusinessDetailsPage extends StatefulWidget {
     required this.repository,
     required this.onRequestLink,
     required this.onCancelRequest,
+    this.onUnlink,
   });
 
   @override
@@ -974,7 +1024,17 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                             ),
                             child: Text(l10n.cancelRequest),
                           )
-                        : const SizedBox.shrink(),
+                        : isLinked
+                            ? OutlinedButton(
+                                onPressed: widget.onUnlink,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red[700],
+                                  side: BorderSide(color: Colors.red[700]!),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child: const Text('Unlink'),
+                              )
+                            : const SizedBox.shrink(),
               ),
           ],
         ),
@@ -1169,60 +1229,99 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
         // Search bar
         Container(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: l10n.search,
-                  prefixIcon: Icon(Icons.search, color: Colors.green[700]),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                              _searchAllProducts = false;
-                            });
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: l10n.search,
+              prefixIcon: Icon(Icons.search, color: Colors.green[700]),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          _searchAllProducts = false;
+                        });
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              // Search all products option (only shown when searching in a category)
-              if (_searchQuery.isNotEmpty && _selectedCategory != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: _searchAllProducts,
-                        onChanged: (value) {
+            ),
+          ),
+        ),
+        // Category filter chips (like catalog page)
+        FutureBuilder<List<String>>(
+          future: _categoriesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox.shrink();
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final categories = snapshot.data!;
+            return Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length + 1, // +1 for "All" option
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    // "All" option
+                    final isSelected = _selectedCategory == null;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(l10n.allCategories),
+                        selected: isSelected,
+                        onSelected: (selected) {
                           setState(() {
-                            _searchAllProducts = value ?? false;
+                            _selectedCategory = null;
+                            _searchQuery = '';
+                            _searchController.clear();
                             _refreshProducts();
                           });
                         },
+                        selectedColor: Colors.green[100],
+                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
                       ),
-                      Text(
-                        'Search in all products',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+                    );
+                  }
+                  final category = categories[index - 1];
+                  final isSelected = _selectedCategory == category;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(category),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedCategory = null;
+                          } else {
+                            _selectedCategory = category;
+                          }
+                          _searchQuery = '';
+                          _searchController.clear();
+                          _refreshProducts();
+                        });
+                      },
+                      selectedColor: Colors.green[100],
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
-        // Show categories or products based on selection
+        // Show products (like catalog page)
         Expanded(
-          child: _selectedCategory == null && _searchQuery.isEmpty
-              ? _buildCategoriesView(context, theme, l10n)
-              : _buildProductsView(context, theme, l10n),
+          child: _buildProductsView(context, theme, l10n),
         ),
       ],
     );

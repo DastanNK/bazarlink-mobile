@@ -216,4 +216,68 @@ class MockSalesRepository implements SalesRepository {
       );
     }
   }
+
+  @override
+  Future<void> cancelOrder(int orderId, {required String reason}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _orders.indexWhere((o) => o.id == orderId);
+    if (idx != -1) {
+      _orders[idx] = SalesOrder(
+        id: _orders[idx].id,
+        consumerName: _orders[idx].consumerName,
+        status: 'cancelled',
+        total: _orders[idx].total,
+        orderNumber: _orders[idx].orderNumber,
+        currency: _orders[idx].currency,
+      );
+    }
+  }
+
+  @override
+  Future<void> completeOrder(int orderId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _orders.indexWhere((o) => o.id == orderId);
+    if (idx != -1) {
+      _orders[idx] = SalesOrder(
+        id: _orders[idx].id,
+        consumerName: _orders[idx].consumerName,
+        status: 'completed',
+        total: _orders[idx].total,
+        orderNumber: _orders[idx].orderNumber,
+        currency: _orders[idx].currency,
+      );
+    }
+  }
+
+  @override
+  Future<void> cancelLink(int linkId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _consumers.indexWhere((c) => c.linkId == linkId);
+    if (idx != -1) {
+      _consumers[idx] = SalesConsumer(
+        id: _consumers[idx].id,
+        name: _consumers[idx].name,
+        status: 'removed',
+        city: _consumers[idx].city,
+        linkId: _consumers[idx].linkId,
+        assignedSalesRepId: null,
+      );
+    }
+  }
+
+  @override
+  Future<void> blockConsumer(int consumerId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final idx = _consumers.indexWhere((c) => c.id == consumerId);
+    if (idx != -1) {
+      _consumers[idx] = SalesConsumer(
+        id: _consumers[idx].id,
+        name: _consumers[idx].name,
+        status: 'blocked',
+        city: _consumers[idx].city,
+        linkId: _consumers[idx].linkId,
+        assignedSalesRepId: _consumers[idx].assignedSalesRepId,
+      );
+    }
+  }
 }

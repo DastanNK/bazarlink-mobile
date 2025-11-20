@@ -44,6 +44,29 @@ class ApiConsumerRepository implements ConsumerRepository {
   }
 
   @override
+  Future<List<OrderItem>> getOrderItems(int orderId) async {
+    // Get order details which includes items
+    final resp = await _client.get('/orders/$orderId');
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load order items: ${resp.statusCode} ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items.map((e) => _orderItemFromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<String> getProductName(int productId) async {
+    // Get product details
+    final resp = await _client.get('/products/$productId');
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load product: ${resp.statusCode} ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return data['name'] as String? ?? 'Unknown Product';
+  }
+
+  @override
   Future<List<LinkInfo>> getLinks() async {
     // Get current user to filter links by consumer_id
     final user = await _authRepository.getCurrentUser();
@@ -166,7 +189,35 @@ class ApiConsumerRepository implements ConsumerRepository {
       throw Exception('Failed to load chats: ${resp.statusCode} ${resp.body}');
     }
     final data = jsonDecode(resp.body) as List<dynamic>;
-    return data.map((e) => _chatFromJson(e as Map<String, dynamic>)).toList();
+    
+    // Get supplier IDs from links
+    final supplierIds = <int>{};
+    for (final link in data) {
+      final linkData = link as Map<String, dynamic>;
+      final supplierId = linkData['supplier_id'] as int?;
+      if (supplierId != null) {
+        supplierIds.add(supplierId);
+      }
+    }
+    
+    // Fetch supplier names
+    final supplierNames = <int, String>{};
+    for (final supplierId in supplierIds) {
+      try {
+        final supplierResp = await _client.get('/suppliers/$supplierId');
+        if (supplierResp.statusCode == 200) {
+          final supplierJson = jsonDecode(supplierResp.body) as Map<String, dynamic>;
+          final name = supplierJson['company_name'] as String?;
+          if (name != null) {
+            supplierNames[supplierId] = name;
+          }
+        }
+      } catch (e) {
+        // If fetching fails, use default name
+      }
+    }
+    
+    return data.map((e) => _chatFromJson(e as Map<String, dynamic>, supplierNames: supplierNames)).toList();
   }
 
   @override
@@ -267,25 +318,34 @@ class ApiConsumerRepository implements ConsumerRepository {
 
   @override
   Future<int> startChatWithSupplier(int supplierId, String supplierCode) async {
-    // Check if link exists
+    // Get current user to get consumer_id
+    final user = await _authRepository.getCurrentUser();
+    if (user == null || user.consumerId == null) {
+      throw Exception('User is not authenticated or not a consumer');
+    }
+    
+    // Check if link already exists (any status)
     final linksResp = await _client.get('/links/');
     if (linksResp.statusCode == 200) {
       final links = jsonDecode(linksResp.body) as List<dynamic>;
       final existingLink = links.firstWhere(
         (l) {
           final link = l as Map<String, dynamic>;
-          return link['supplier_id'] == supplierId && link['status'] == 'accepted';
+          return link['supplier_id'] == supplierId && 
+                 link['consumer_id'] == user.consumerId;
         },
         orElse: () => null,
       );
       if (existingLink != null) {
+        // Return existing link ID - chat already exists
         return (existingLink as Map<String, dynamic>)['id'] as int;
       }
     }
+    
     // Create new link if doesn't exist
     final body = {
       'supplier_id': supplierId,
-      'consumer_id': null, // Will be determined by backend
+      'consumer_id': user.consumerId,
     };
     final resp = await _client.post('/links/', body: body);
     if (resp.statusCode != 201 && resp.statusCode != 200) {
@@ -595,17 +655,20 @@ class ApiConsumerRepository implements ConsumerRepository {
     );
   }
 
+  OrderItem _orderItemFromJson(Map<String, dynamic> json) {
+    return OrderItem(
+      id: json['id'] as int? ?? 0,
+      productId: json['product_id'] as int,
+      quantity: double.tryParse(json['quantity'].toString()) ?? 0.0,
+      unitPrice: double.tryParse(json['unit_price'].toString()) ?? 0.0,
+      totalPrice: double.tryParse(json['total_price'].toString()) ?? 0.0,
+    );
+  }
+
   ConsumerOrder _orderFromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? [];
     final items = itemsJson.map((itemJson) {
-      final item = itemJson as Map<String, dynamic>;
-      return OrderItem(
-        id: item['id'] as int? ?? 0,
-        productId: item['product_id'] as int,
-        quantity: double.tryParse(item['quantity'].toString()) ?? 0.0,
-        unitPrice: double.tryParse(item['unit_price'].toString()) ?? 0.0,
-        totalPrice: double.tryParse(item['total_price'].toString()) ?? 0.0,
-      );
+      return _orderItemFromJson(itemJson as Map<String, dynamic>);
     }).toList();
 
     return ConsumerOrder(
@@ -662,12 +725,15 @@ class ApiConsumerRepository implements ConsumerRepository {
     );
   }
 
-  Chat _chatFromJson(Map<String, dynamic> json) {
+  Chat _chatFromJson(Map<String, dynamic> json, {Map<int, String>? supplierNames}) {
+    final supplierId = json['supplier_id'] as int;
+    final supplierName = supplierNames?[supplierId] ?? 'Supplier #$supplierId';
+    
     return Chat(
       id: json['id'] as int,
-      supplierId: json['supplier_id'] as int,
-      supplierName: 'Supplier #${json['supplier_id']}',
-      supplierCode: null,
+      supplierId: supplierId,
+      supplierName: supplierName,
+      supplierCode: supplierId.toString(),
       supplierLogoUrl: null,
       lastMessageAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

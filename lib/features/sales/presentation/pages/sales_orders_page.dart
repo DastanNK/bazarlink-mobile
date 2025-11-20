@@ -73,16 +73,111 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
     }
   }
 
+  Future<void> _handleCancelOrder(SalesOrder order) async {
+    final l10n = context.l10n;
+    final reasonController = TextEditingController();
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please provide a reason for canceling this order'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                hintText: 'Enter cancel reason',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (reasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reason is required')),
+                );
+                return;
+              }
+              Navigator.pop(context, reasonController.text.trim());
+            },
+            child: const Text('Cancel Order'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      try {
+        await widget.repository.cancelOrder(order.id, reason: result);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order Canceled: ${order.orderNumber ?? 'Order #${order.id}'}'),
+            backgroundColor: Colors.orange[700],
+          ),
+        );
+        _refresh();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.error}: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCompleteOrder(SalesOrder order) async {
+    final l10n = context.l10n;
+    try {
+      await widget.repository.completeOrder(order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order Completed: ${order.orderNumber ?? 'Order #${order.id}'}'),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${l10n.error}: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+
   Color _getStatusColor(String status) {
-    switch (status) {
+    final normalizedStatus = status.toLowerCase().replaceAll(' ', '_');
+    switch (normalizedStatus) {
       case 'pending':
         return Colors.orange;
       case 'accepted':
       case 'in_progress':
+      case 'inprogress':
         return Colors.blue;
       case 'completed':
         return Colors.green;
       case 'rejected':
+        return Colors.red;
+      case 'canceled':
       case 'cancelled':
         return Colors.red;
       default:
@@ -129,7 +224,7 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
             itemCount: list.length,
             itemBuilder: (_, i) {
               final o = list[i];
-              final isPending = o.status == 'pending';
+              final isPending = o.status == 'pending' || o.status == 'Pending';
               final statusColor = _getStatusColor(o.status);
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -227,6 +322,35 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                                 label: Text(l10n.reject),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.red[700],
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else if (o.status == 'in_progress' || o.status == 'in progress' || o.status == 'accepted') ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleCancelOrder(o),
+                                icon: const Icon(Icons.cancel),
+                                label: Text(l10n.cancel),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange[700],
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _handleCompleteOrder(o),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Complete'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green[700],
                                   foregroundColor: Colors.white,
                                 ),
                               ),

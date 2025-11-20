@@ -20,11 +20,24 @@ class _ChatsPageState extends State<ChatsPage> {
   late Future<List<Chat>> _chatsFuture;
   int? _selectedChatId;
   late Future<List<ChatMessage>> _messagesFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _chatsFuture = widget.repository.getChats();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshChats() async {
@@ -59,15 +72,75 @@ class _ChatsPageState extends State<ChatsPage> {
           return _buildChatDetail(context, theme, l10n, selectedChat);
         }
 
+        // Filter chats by search query
+        final filteredChats = _searchQuery.isEmpty
+            ? chats
+            : chats.where((c) => 
+                c.supplierName.toLowerCase().contains(_searchQuery)
+              ).toList();
+        
         return RefreshIndicator(
           onRefresh: _refreshChats,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: chats.length,
-            itemBuilder: (context, index) {
-              final chat = chats[index];
-              return _buildChatCard(context, theme, l10n, chat);
-            },
+          child: Column(
+            children: [
+              // Create new chat button
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: FilledButton.icon(
+                  onPressed: () => _showCreateChatDialog(context, theme, l10n),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create New Chat'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ),
+              // Search bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by supplier name...',
+                    prefixIcon: Icon(Icons.search, color: Colors.green[700]),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Chats list
+              Expanded(
+                child: filteredChats.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No chats found',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: filteredChats.length,
+                        itemBuilder: (context, index) {
+                          final chat = filteredChats[index];
+                          return _buildChatCard(context, theme, l10n, chat);
+                        },
+                      ),
+              ),
+            ],
           ),
         );
       },
@@ -828,6 +901,102 @@ class _ChatsPageState extends State<ChatsPage> {
         l10n.jul, l10n.aug, l10n.sep, l10n.oct, l10n.nov, l10n.dec
       ];
       return '${date.day} ${months[date.month - 1]}';
+    }
+  }
+
+  Future<void> _showCreateChatDialog(BuildContext context, ThemeData theme, AppLocalizations l10n) async {
+    final suppliers = await widget.repository.getLinkedSuppliers();
+    if (!mounted) return;
+    
+    final selected = await showDialog<LinkInfo>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Supplier'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: suppliers.length,
+            itemBuilder: (context, index) {
+              final supplier = suppliers[index];
+              return ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: supplier.logoUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            supplier.logoUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.store,
+                              color: Colors.green[700],
+                              size: 30,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.store,
+                          color: Colors.green[700],
+                          size: 30,
+                        ),
+                ),
+                title: Text(supplier.supplierName),
+                onTap: () => Navigator.pop(context, supplier),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (selected != null && selected.supplierCode != null) {
+      final allSuppliers = await widget.repository.getAllSuppliers();
+      final supplier = allSuppliers.firstWhere(
+        (s) => s.code == selected.supplierCode,
+        orElse: () => SupplierInfo(
+          id: selected.id,
+          name: selected.supplierName,
+          code: selected.supplierCode!,
+        ),
+      );
+      
+      // Check if chat already exists by checking current chats
+      final currentChats = await widget.repository.getChats();
+      final existingChat = currentChats.firstWhere(
+        (c) => c.supplierId == supplier.id,
+        orElse: () => Chat(
+          id: -1,
+          supplierId: -1,
+          supplierName: '',
+          lastMessageAt: DateTime.now(),
+        ),
+      );
+      
+      int chatId;
+      if (existingChat.id != -1 && existingChat.supplierId == supplier.id) {
+        // Chat already exists, use it
+        chatId = existingChat.id;
+      } else {
+        // Create new chat
+        chatId = await widget.repository.startChatWithSupplier(
+          supplier.id,
+          selected.supplierCode!,
+        );
+      }
+      
+      if (mounted) {
+        setState(() {
+          _selectedChatId = chatId;
+          _messagesFuture = widget.repository.getChatMessages(chatId);
+          _chatsFuture = widget.repository.getChats();
+        });
+      }
     }
   }
 }

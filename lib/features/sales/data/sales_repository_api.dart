@@ -72,7 +72,38 @@ class ApiSalesRepository implements SalesRepository {
       throw Exception('Failed to load orders: ${resp.statusCode} ${resp.body}');
     }
     final data = jsonDecode(resp.body) as List<dynamic>;
-    return data.map((e) => SalesOrder.fromJson(e as Map<String, dynamic>)).toList();
+    
+    // Get consumer IDs and fetch names
+    final consumerIds = <int>{};
+    for (final order in data) {
+      final orderData = order as Map<String, dynamic>;
+      final consumerId = orderData['consumer_id'] as int?;
+      if (consumerId != null) {
+        consumerIds.add(consumerId);
+      }
+    }
+    
+    final consumerNames = <int, String>{};
+    for (final consumerId in consumerIds) {
+      try {
+        final consumerResp = await _client.get('/consumers/$consumerId');
+        if (consumerResp.statusCode == 200) {
+          final consumerJson = jsonDecode(consumerResp.body) as Map<String, dynamic>;
+          final name = consumerJson['business_name'] as String? ?? consumerJson['name'] as String?;
+          if (name != null) {
+            consumerNames[consumerId] = name;
+          }
+        }
+      } catch (e) {
+        // If fetching fails, use default name
+      }
+    }
+    
+    return data.map((e) {
+      final orderData = e as Map<String, dynamic>;
+      final consumerId = orderData['consumer_id'] as int?;
+      return SalesOrder.fromJson(orderData, consumerName: consumerId != null ? consumerNames[consumerId] : null);
+    }).toList();
   }
 
   @override
@@ -82,7 +113,38 @@ class ApiSalesRepository implements SalesRepository {
       throw Exception('Failed to load complaints: ${resp.statusCode} ${resp.body}');
     }
     final data = jsonDecode(resp.body) as List<dynamic>;
-    return data.map((e) => SalesComplaint.fromJson(e as Map<String, dynamic>)).toList();
+    
+    // Get consumer IDs and fetch names
+    final consumerIds = <int>{};
+    for (final complaint in data) {
+      final complaintData = complaint as Map<String, dynamic>;
+      final consumerId = complaintData['consumer_id'] as int?;
+      if (consumerId != null) {
+        consumerIds.add(consumerId);
+      }
+    }
+    
+    final consumerNames = <int, String>{};
+    for (final consumerId in consumerIds) {
+      try {
+        final consumerResp = await _client.get('/consumers/$consumerId');
+        if (consumerResp.statusCode == 200) {
+          final consumerJson = jsonDecode(consumerResp.body) as Map<String, dynamic>;
+          final name = consumerJson['business_name'] as String? ?? consumerJson['name'] as String?;
+          if (name != null) {
+            consumerNames[consumerId] = name;
+          }
+        }
+      } catch (e) {
+        // If fetching fails, use default name
+      }
+    }
+    
+    return data.map((e) {
+      final complaintData = e as Map<String, dynamic>;
+      final consumerId = complaintData['consumer_id'] as int?;
+      return SalesComplaint.fromJson(complaintData, consumerName: consumerId != null ? consumerNames[consumerId] : null);
+    }).toList();
   }
 
   @override
@@ -197,6 +259,72 @@ class ApiSalesRepository implements SalesRepository {
     final resp = await _client.post('/links/$linkId/assign');
     if (resp.statusCode != 200) {
       throw Exception('Failed to assign link: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  @override
+  Future<void> cancelOrder(int orderId, {required String reason}) async {
+    // Update order status to "cancelled" (note: backend uses "cancelled" not "canceled")
+    final body = {
+      'status': 'cancelled',
+      'notes': reason, // Store cancel reason in notes
+    };
+    final resp = await _client.put('/orders/$orderId', body: body);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to cancel order: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  @override
+  Future<void> completeOrder(int orderId) async {
+    // Update order status to "completed"
+    final body = {
+      'status': 'completed',
+    };
+    final resp = await _client.put('/orders/$orderId', body: body);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to complete order: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  @override
+  Future<void> cancelLink(int linkId) async {
+    // Update link status to "removed" to unlink customer
+    final body = {
+      'status': 'removed',
+    };
+    final resp = await _client.put('/links/$linkId', body: body);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to cancel link: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
+  @override
+  Future<void> blockConsumer(int consumerId) async {
+    // Find all links with this consumer and block them
+    final user = await _ensureUser();
+    final supplierId = user.supplierId!;
+    
+    // Get all links for this supplier and consumer
+    final resp = await _client.get('/links/?supplier_id=$supplierId&consumer_id=$consumerId');
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to get links: ${resp.statusCode} ${resp.body}');
+    }
+    
+    final data = jsonDecode(resp.body) as List<dynamic>;
+    for (final link in data) {
+      final linkData = link as Map<String, dynamic>;
+      final linkId = linkData['id'] as int?;
+      if (linkId != null) {
+        // Update link status to "blocked"
+        final body = {
+          'status': 'blocked',
+        };
+        final updateResp = await _client.put('/links/$linkId', body: body);
+        if (updateResp.statusCode != 200) {
+          throw Exception('Failed to block consumer: ${updateResp.statusCode} ${updateResp.body}');
+        }
+      }
     }
   }
 }

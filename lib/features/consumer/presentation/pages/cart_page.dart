@@ -138,34 +138,64 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _handleReorder(ConsumerOrder order, CartProvider cartProvider) async {
-    // Mock: In a real app, fetch order items from repository
-    // For now, we'll create mock items based on order total
-    // This is a simplified version - in production, fetch actual order items
-    final mockItems = [
-      CartItem(
-        productId: 1,
-        productName: 'Product from Order #${order.id}',
-        supplierId: 1,
-        supplierCode: 'BMS001',
-        price: order.total / 3,
-        currency: 'KZT',
-        unit: 'kg',
-        imageUrl: null,
-        quantity: 3,
-      ),
-    ];
-    
-    for (final item in mockItems) {
-      cartProvider.addItem(item);
+    // Fetch actual order items from repository
+    try {
+      final orderItems = await widget.repository.getOrderItems(order.id);
+      
+      // Get supplier info for the order
+      final supplierCode = order.supplierCode ?? order.supplierId?.toString() ?? '';
+      final supplierId = order.supplierId ?? 0;
+      
+      // Get product names and details
+      for (final item in orderItems) {
+        final productName = await widget.repository.getProductName(item.productId);
+        
+        // Get product details to get price, unit, etc.
+        final catalog = await widget.repository.getCatalog();
+        final product = catalog.firstWhere(
+          (p) => p.id == item.productId,
+          orElse: () => Product(
+            id: item.productId,
+            name: productName,
+            unit: 'piece',
+            price: item.unitPrice,
+            category: '',
+          ),
+        );
+        
+        // Create cart item with actual product data
+        final cartItem = CartItem(
+          productId: item.productId,
+          productName: product.name,
+          supplierId: supplierId,
+          supplierCode: supplierCode,
+          price: product.price,
+          discountPrice: null, // Use current price, not order price
+          currency: order.currency,
+          unit: product.unit,
+          imageUrl: product.imageUrl,
+          quantity: item.quantity.toInt(),
+        );
+        
+        cartProvider.addItem(cartItem);
+      }
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${orderItems.length} ${context.l10n.items} added to cart'),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error reordering: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
     }
-    
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.itemsAddedFromOrder),
-        backgroundColor: Colors.green[700],
-      ),
-    );
   }
 
   Future<void> _showComplaintModal(BuildContext context, ConsumerOrder order) async {
@@ -631,6 +661,8 @@ class _CartPageState extends State<CartPage> {
                 _buildFilterChip(theme, l10n.completed, 'completed', l10n),
                 const SizedBox(width: 8),
                 _buildFilterChip(theme, l10n.rejected, 'rejected', l10n),
+                const SizedBox(width: 8),
+                _buildFilterChip(theme, 'Canceled', 'canceled', l10n),
               ],
             ),
           ),
@@ -722,7 +754,9 @@ class _CartPageState extends State<CartPage> {
         case 'completed':
           return status == 'completed' || status == 'delivered' || status == 'accepted';
         case 'rejected':
-          return status == 'rejected' || status == 'cancelled';
+          return status == 'rejected';
+        case 'canceled':
+          return status == 'canceled' || status == 'cancelled';
         default:
           return true;
       }
@@ -761,19 +795,25 @@ class _CartPageState extends State<CartPage> {
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      order.status,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        order.status,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ),
@@ -808,11 +848,14 @@ class _CartPageState extends State<CartPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
+                  OutlinedButton.icon(
                     onPressed: () => _showComplaintModal(context, order),
-                    icon: const Icon(Icons.report_problem, size: 20),
-                    color: Colors.orange[700],
-                    tooltip: l10n.complain,
+                    icon: const Icon(Icons.report_problem, size: 18),
+                    label: Text(l10n.complain),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange[700],
+                      side: BorderSide(color: Colors.orange[700]!),
+                    ),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _handleReorder(order, cartProvider),
@@ -838,67 +881,130 @@ class _CartPageState extends State<CartPage> {
     AppLocalizations l10n,
     ConsumerOrder order,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.orderDetails,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (order.items.isEmpty)
-          Text(
-            'No items in this order',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+    // Fetch actual order items from repository
+    return FutureBuilder<List<OrderItem>>(
+      future: widget.repository.getOrderItems(order.id),
+      builder: (context, snapshot) {
+        final items = snapshot.hasData ? snapshot.data! : order.items;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Supplier info if available
+            if (order.supplierCode != null || order.supplierId != null) ...[
+              FutureBuilder<Map<String, String>>(
+                future: _supplierNamesMap,
+                builder: (context, supplierSnapshot) {
+                  if (supplierSnapshot.hasData && order.supplierCode != null) {
+                    final supplierName = supplierSnapshot.data![order.supplierCode] ?? order.supplierCode ?? 'Supplier';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.store, size: 16, color: Colors.green[700]),
+                          const SizedBox(width: 8),
+                          Text(
+                            supplierName,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
+            Text(
+              l10n.orderDetails,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          )
-        else
-          ...order.items.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              Text(
+                'No items in this order',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              )
+            else
+              ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: FutureBuilder<String>(
+                        future: _getProductName(item.productId),
+                        builder: (context, productSnapshot) {
+                          final productName = productSnapshot.hasData 
+                              ? productSnapshot.data! 
+                              : 'Product #${item.productId}';
+                          return Text(
+                            '$productName × ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 2)}',
+                            style: theme.textTheme.bodyMedium,
+                          );
+                        },
+                      ),
+                    ),
+                    Text(
+                      '${item.totalPrice.toStringAsFixed(0)} ${order.currency}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    'Product #${item.productId} × ${item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 2)}',
-                    style: theme.textTheme.bodyMedium,
+                Text(
+                  l10n.totalSum,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  '${item.totalPrice.toStringAsFixed(0)} ${order.currency}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  '${order.total.toStringAsFixed(0)} ${order.currency}',
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: Colors.green[700],
                   ),
                 ),
               ],
             ),
-          )),
-        const SizedBox(height: 12),
-        const Divider(),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              l10n.totalSum,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              '${order.total.toStringAsFixed(0)} ${order.currency}',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.green[700],
-              ),
-            ),
           ],
-        ),
-      ],
+        );
+      },
     );
+  }
+
+  Future<String> _getProductName(int productId) async {
+    try {
+      final catalog = await widget.repository.getCatalog();
+      final product = catalog.firstWhere(
+        (p) => p.id == productId,
+        orElse: () => Product(
+          id: productId,
+          name: 'Product #$productId',
+          unit: 'pcs',
+          price: 0,
+          category: '',
+        ),
+      );
+      return product.name;
+    } catch (e) {
+      return 'Product #$productId';
+    }
   }
 
   Color _getStatusColor(String status) {

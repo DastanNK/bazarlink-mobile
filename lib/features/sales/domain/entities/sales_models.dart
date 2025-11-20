@@ -45,10 +45,10 @@ class SalesOrder {
     this.currency = 'KZT',
   });
 
-  factory SalesOrder.fromJson(Map<String, dynamic> json) {
+  factory SalesOrder.fromJson(Map<String, dynamic> json, {String? consumerName}) {
     return SalesOrder(
       id: json['id'] as int,
-      consumerName: 'Consumer #${json['consumer_id']}',
+      consumerName: consumerName ?? 'Consumer #${json['consumer_id']}',
       status: json['status'] as String,
       total: double.tryParse(json['total'].toString()) ?? 0.0,
       orderNumber: json['order_number'] as String?,
@@ -63,6 +63,7 @@ class SalesComplaint {
   final String title;
   final String status;
   final String? description;
+  final int? linkId; // Link ID for chat
 
   SalesComplaint({
     required this.id,
@@ -70,15 +71,17 @@ class SalesComplaint {
     required this.title,
     required this.status,
     this.description,
+    this.linkId,
   });
 
-  factory SalesComplaint.fromJson(Map<String, dynamic> json) {
+  factory SalesComplaint.fromJson(Map<String, dynamic> json, {String? consumerName}) {
     return SalesComplaint(
       id: json['id'] as int,
-      consumerName: 'Consumer #${json['consumer_id']}',
+      consumerName: consumerName ?? 'Consumer #${json['consumer_id']}',
       title: json['title'] as String,
       status: json['status'] as String,
       description: json['description'] as String?,
+      linkId: json['link_id'] as int?,
     );
   }
 }

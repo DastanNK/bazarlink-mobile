@@ -9,6 +9,8 @@ abstract class SalesRepository {
 
   Future<void> acceptOrder(int orderId);
   Future<void> rejectOrder(int orderId);
+  Future<void> cancelOrder(int orderId, {required String reason});
+  Future<void> completeOrder(int orderId);
   Future<void> sendMessage(int linkId, String text);
   Future<void> resolveComplaint(int complaintId, {required String resolution});
   Future<void> escalateComplaint(
@@ -20,5 +22,7 @@ abstract class SalesRepository {
   // Link management methods
   Future<void> acceptLink(int linkId);
   Future<void> rejectLink(int linkId);
+  Future<void> cancelLink(int linkId);
+  Future<void> blockConsumer(int consumerId);
   Future<void> assignLink(int linkId);
 }

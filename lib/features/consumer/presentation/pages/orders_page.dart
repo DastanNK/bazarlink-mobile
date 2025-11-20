@@ -1,7 +1,6 @@
 // lib/features/consumer/presentation/pages/orders_page.dart
 import 'package:flutter/material.dart';
 
-import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
 import '../../domain/entities/consumer_models.dart';
 
@@ -25,7 +24,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
 
     return FutureBuilder<List<ConsumerOrder>>(
       future: _future,

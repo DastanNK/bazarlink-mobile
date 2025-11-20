@@ -5,6 +5,8 @@ import '../domain/entities/consumer_models.dart';
 abstract class ConsumerRepository {
   Future<List<Product>> getCatalog();
   Future<List<ConsumerOrder>> getOrders();
+  Future<List<OrderItem>> getOrderItems(int orderId);
+  Future<String> getProductName(int productId);
   Future<List<LinkInfo>> getLinks();
   Future<List<Complaint>> getComplaints();
 

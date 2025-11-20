@@ -21,6 +21,8 @@ class _SalesChatPageState extends State<SalesChatPage> {
   late Future<List<SalesConsumer>> _consumersFuture;
   int? _selectedLinkId;
   late Future<List<SalesMessage>> _messagesFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   final _textCtrl = TextEditingController();
   int? _currentUserId;
 
@@ -30,6 +32,18 @@ class _SalesChatPageState extends State<SalesChatPage> {
     _consumersFuture = widget.repository.getLinkedConsumers();
     _messagesFuture = Future.value(<SalesMessage>[]);
     _loadCurrentUser();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _textCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -92,17 +106,62 @@ class _SalesChatPageState extends State<SalesChatPage> {
           return _buildChatDetail(context, theme, l10n, selectedConsumer);
         }
         
+        // Filter consumers by search query
+        final filteredConsumers = _searchQuery.isEmpty
+            ? assignedConsumers
+            : assignedConsumers.where((c) => 
+                c.name.toLowerCase().contains(_searchQuery)
+              ).toList();
+        
         // Otherwise, show list of chats
-        return RefreshIndicator(
-          onRefresh: _refreshConsumers,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: assignedConsumers.length,
-            itemBuilder: (context, index) {
-              final consumer = assignedConsumers[index];
-              return _buildChatCard(context, theme, l10n, consumer);
-            },
-          ),
+        return Column(
+          children: [
+            // Search bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search by name...',
+                  prefixIcon: Icon(Icons.search, color: Colors.green[700]),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            // Chats list
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshConsumers,
+                child: filteredConsumers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No chats found',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredConsumers.length,
+                        itemBuilder: (context, index) {
+                          final consumer = filteredConsumers[index];
+                          return _buildChatCard(context, theme, l10n, consumer);
+                        },
+                      ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -135,10 +194,133 @@ class _SalesChatPageState extends State<SalesChatPage> {
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => _showCreateChatDialog(context, theme, l10n),
+              icon: const Icon(Icons.add),
+              label: const Text('Create New Chat'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _showCreateChatDialog(BuildContext context, ThemeData theme, AppLocalizations l10n) async {
+    // Get all consumers (not just assigned ones)
+    final allConsumers = await widget.repository.getLinkedConsumers();
+    if (!mounted) return;
+    
+    // Filter to only accepted consumers (not blocked, not rejected)
+    final availableConsumers = allConsumers.where((c) => 
+      c.status == 'accepted' || c.status == 'pending'
+    ).toList();
+    
+    if (availableConsumers.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No available consumers to chat with'),
+          backgroundColor: Colors.orange[700],
+        ),
+      );
+      return;
+    }
+    
+    final selected = await showDialog<SalesConsumer>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Consumer'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: availableConsumers.length,
+            itemBuilder: (context, index) {
+              final consumer = availableConsumers[index];
+              return ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.restaurant,
+                    color: Colors.green[700],
+                    size: 30,
+                  ),
+                ),
+                title: Text(consumer.name),
+                subtitle: consumer.city != null ? Text(consumer.city!) : null,
+                onTap: () => Navigator.pop(context, consumer),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      // Check if chat already exists (link exists)
+      if (selected.status == 'accepted') {
+        // Chat already exists, just open it
+        if (mounted) {
+          setState(() {
+            _selectedLinkId = selected.linkId;
+            _loadMessages();
+          });
+        }
+      } else {
+        // Need to accept the link first if pending, or assign if not assigned
+        if (selected.status == 'pending') {
+          try {
+            await widget.repository.acceptLink(selected.linkId);
+            if (mounted) {
+              setState(() {
+                _selectedLinkId = selected.linkId;
+                _loadMessages();
+                _refreshConsumers();
+              });
+            }
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+                backgroundColor: Colors.red[700],
+              ),
+            );
+          }
+        } else if (selected.status == 'accepted' && selected.assignedSalesRepId == null) {
+          // Assign to current sales rep
+          try {
+            await widget.repository.assignLink(selected.linkId);
+            if (mounted) {
+              setState(() {
+                _selectedLinkId = selected.linkId;
+                _loadMessages();
+                _refreshConsumers();
+              });
+            }
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+                backgroundColor: Colors.red[700],
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   Widget _buildChatCard(
@@ -416,11 +598,5 @@ class _SalesChatPageState extends State<SalesChatPage> {
         ],
       ),
     );
-  }
-  
-  @override
-  void dispose() {
-    _textCtrl.dispose();
-    super.dispose();
   }
 }
