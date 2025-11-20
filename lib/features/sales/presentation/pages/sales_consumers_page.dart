@@ -206,8 +206,8 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
           return status == 'pending';
         case 'accepted':
           return status == 'accepted';
-        case 'rejected':
-          return status == 'rejected';
+        case 'removed':
+          return status == 'removed' || status == 'rejected'; // Support both for backward compatibility
         case 'blocked':
           return status == 'blocked';
         default:
@@ -265,7 +265,7 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                     const SizedBox(width: 8),
                     _buildFilterChip(theme, l10n, 'Accepted', 'accepted'),
                     const SizedBox(width: 8),
-                    _buildFilterChip(theme, l10n, 'Rejected', 'rejected'),
+                    _buildFilterChip(theme, l10n, 'Rejected', 'removed'),
                     const SizedBox(width: 8),
                     _buildFilterChip(theme, l10n, 'Blocked', 'blocked'),
                   ],
@@ -303,7 +303,7 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                           final c = filteredList[i];
                           final isPending = c.status == 'pending';
                           final isAccepted = c.status == 'accepted';
-                          final isRejected = c.status == 'rejected';
+                          final isRejected = c.status == 'removed' || c.status == 'rejected';
                           final isAssigned = c.assignedSalesRepId != null;
                           final statusColor = _getStatusColor(c.status);
               
@@ -407,8 +407,8 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                                 ),
                               ),
                             ),
-                        ],
-                      ),
+                          ],
+                        ),
                       ] else if (isRejected) ...[
                         const SizedBox(height: 12),
                         Row(
@@ -509,9 +509,9 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
             },
           ),
         ),
-              ),
-            ],
-          );
+      ),
+    ],
+    );
       },
     );
   }

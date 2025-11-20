@@ -243,9 +243,9 @@ class ApiSalesRepository implements SalesRepository {
 
   @override
   Future<void> rejectLink(int linkId) async {
-    // Update link status to "rejected"
+    // Update link status to "removed" (backend doesn't have "rejected", uses "removed")
     final body = {
-      'status': 'rejected',
+      'status': 'removed',
     };
     final resp = await _client.put('/links/$linkId', body: body);
     if (resp.statusCode != 200) {

@@ -116,9 +116,23 @@ class _SalesChatPageState extends State<SalesChatPage> {
         // Otherwise, show list of chats
         return Column(
           children: [
+            // Create new chat button (always visible)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: FilledButton.icon(
+                onPressed: () => _showCreateChatDialog(context, theme, l10n),
+                icon: const Icon(Icons.add),
+                label: const Text('Create New Chat'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ),
             // Search bar
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
@@ -138,6 +152,7 @@ class _SalesChatPageState extends State<SalesChatPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
             // Chats list
             Expanded(
               child: RefreshIndicator(
