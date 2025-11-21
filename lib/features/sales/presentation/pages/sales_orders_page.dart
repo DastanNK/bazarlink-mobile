@@ -359,6 +359,76 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      // Delivery details
+                      if (o.deliveryMethod != null || o.deliveryAddress != null || o.deliveryDate != null) ...[
+                        const SizedBox(height: 4),
+                        if (o.deliveryMethod != null) ...[
+                          Row(
+                            children: [
+                              Icon(Icons.local_shipping, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${l10n.deliveryMethod}: ${o.deliveryMethod}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.deliveryAddress != null && o.deliveryAddress!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.location_on, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  o.deliveryAddress!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.deliveryDate != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.event, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${l10n.deliveryDate}: ${o.deliveryDate!.toLocal().toString().split(".").first}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.notes != null && o.notes!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.note, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  o.notes!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                       if (isPending) ...[
                         const SizedBox(height: 12),
                         Row(

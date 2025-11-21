@@ -39,6 +39,12 @@ class SalesOrder {
   final String? orderNumber;
   final String currency;
 
+  // Delivery & extra info (mirror of what consumer sees)
+  final String? deliveryMethod;
+  final String? deliveryAddress;
+  final DateTime? deliveryDate;
+  final String? notes;
+
   SalesOrder({
     required this.id,
     required this.consumerName,
@@ -46,9 +52,16 @@ class SalesOrder {
     required this.total,
     this.orderNumber,
     this.currency = 'KZT',
+    this.deliveryMethod,
+    this.deliveryAddress,
+    this.deliveryDate,
+    this.notes,
   });
 
-  factory SalesOrder.fromJson(Map<String, dynamic> json, {String? consumerName}) {
+  factory SalesOrder.fromJson(
+    Map<String, dynamic> json, {
+    String? consumerName,
+  }) {
     return SalesOrder(
       id: json['id'] as int,
       consumerName: consumerName ?? 'Consumer #${json['consumer_id']}',
@@ -56,6 +69,12 @@ class SalesOrder {
       total: double.tryParse(json['total'].toString()) ?? 0.0,
       orderNumber: json['order_number'] as String?,
       currency: json['currency'] as String? ?? 'KZT',
+      deliveryMethod: json['delivery_method'] as String?,
+      deliveryAddress: json['delivery_address'] as String?,
+      deliveryDate: json['delivery_date'] != null
+          ? DateTime.parse(json['delivery_date'] as String)
+          : null,
+      notes: json['notes'] as String?,
     );
   }
 }

@@ -982,6 +982,50 @@ class _CartPageState extends State<CartPage> {
                 ),
               ],
             ),
+            // Cancel / reject reason (if any)
+            const SizedBox(height: 8),
+            if ((order.status.toLowerCase() == 'cancelled' ||
+                    order.status.toLowerCase() == 'canceled' ||
+                    order.status.toLowerCase() == 'rejected') &&
+                order.notes != null &&
+                order.notes!.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: Colors.red[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cancel reason',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.red[900],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            order.notes!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.red[900],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         );
       },
