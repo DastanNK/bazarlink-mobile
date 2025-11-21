@@ -5,6 +5,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/sales_repository.dart';
 import '../../domain/entities/sales_models.dart';
+import '../../domain/entities/manager_info.dart';
 
 class SalesComplaintsPage extends StatefulWidget {
   final SalesRepository repository;
@@ -19,7 +20,6 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   late Future<List<SalesComplaint>> _future;
   final TextEditingController _resolutionController = TextEditingController();
   final TextEditingController _escalationController = TextEditingController();
-  final TextEditingController _managerIdController = TextEditingController();
   int? _selectedComplaintId;
   late Future<List<SalesMessage>> _messagesFuture;
 
@@ -33,7 +33,6 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   void dispose() {
     _resolutionController.dispose();
     _escalationController.dispose();
-    _managerIdController.dispose();
     super.dispose();
   }
 
@@ -90,6 +89,20 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
     if (result != null && result.isNotEmpty) {
       try {
         await widget.repository.resolveComplaint(complaint.id, resolution: result);
+        
+        // Send message to customer about resolution
+        if (complaint.linkId != null) {
+          try {
+            await widget.repository.sendMessage(
+              complaint.linkId!,
+              'Your complaint has been resolved. Resolution: $result',
+            );
+          } catch (e) {
+            // Log error but don't fail the resolution
+            debugPrint('Failed to send resolution message: $e');
+          }
+        }
+        
         if (!mounted) return;
         await _refresh();
         if (!mounted) return;
@@ -114,57 +127,94 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   Future<void> _handleEscalate(SalesComplaint complaint) async {
     final l10n = context.l10n;
     _escalationController.clear();
-    _managerIdController.clear();
+    
+    // Load managers
+    final managersFuture = widget.repository.getManagers();
+    
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.escalateComplaint),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _managerIdController,
-              decoration: InputDecoration(
-                labelText: l10n.managerUserId,
-                hintText: l10n.enterManagerUserId,
-                border: const OutlineInputBorder(),
+      builder: (context) => FutureBuilder<List<ManagerInfo>>(
+        future: managersFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return AlertDialog(
+              title: Text(l10n.escalateComplaint),
+              content: const Center(child: CircularProgressIndicator()),
+            );
+          }
+          
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return AlertDialog(
+              title: Text(l10n.escalateComplaint),
+              content: const Text('No managers available'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.cancel),
+                ),
+              ],
+            );
+          }
+          
+          final managers = snapshot.data!;
+          ManagerInfo? selectedManager;
+          
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: Text(l10n.escalateComplaint),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<ManagerInfo>(
+                    decoration: InputDecoration(
+                      labelText: 'Select Manager',
+                      border: const OutlineInputBorder(),
+                    ),
+                    value: selectedManager,
+                    items: managers.map((manager) {
+                      return DropdownMenuItem<ManagerInfo>(
+                        value: manager,
+                        child: Text('${manager.name} (${manager.email})'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedManager = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _escalationController,
+                    decoration: InputDecoration(
+                      labelText: l10n.noteOptional,
+                      hintText: l10n.enterEscalationNote,
+                      border: const OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
               ),
-              keyboardType: TextInputType.number,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: selectedManager == null
+                      ? null
+                      : () {
+                          Navigator.pop(context, {
+                            'managerId': selectedManager!.id.toString(),
+                            'note': _escalationController.text.trim(),
+                          });
+                        },
+                  child: Text(l10n.escalate),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _escalationController,
-              decoration: InputDecoration(
-                labelText: l10n.noteOptional,
-                hintText: l10n.enterEscalationNote,
-                border: const OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final managerId = _managerIdController.text.trim();
-              if (managerId.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.managerIdRequired)),
-                );
-                return;
-              }
-              Navigator.pop(context, {
-                'managerId': managerId,
-                'note': _escalationController.text.trim(),
-              });
-            },
-            child: Text(l10n.escalate),
-          ),
-        ],
+          );
+        },
       ),
     );
 

@@ -860,7 +860,7 @@ class _CartPageState extends State<CartPage> {
                   OutlinedButton.icon(
                     onPressed: () => _handleReorder(order, cartProvider),
                     icon: const Icon(Icons.refresh, size: 18),
-                    label: Text(l10n.reorder),
+                    label: const Text('Reorder'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.green[700],
                       side: BorderSide(color: Colors.green[700]!),

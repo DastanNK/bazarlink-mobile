@@ -1,5 +1,6 @@
 // lib/features/sales/data/sales_repository.dart
 import '../domain/entities/sales_models.dart';
+import '../domain/entities/manager_info.dart';
 
 abstract class SalesRepository {
   Future<List<SalesConsumer>> getLinkedConsumers();
@@ -25,4 +26,7 @@ abstract class SalesRepository {
   Future<void> cancelLink(int linkId);
   Future<void> blockConsumer(int consumerId);
   Future<void> assignLink(int linkId);
+  
+  // Manager methods
+  Future<List<ManagerInfo>> getManagers();
 }

@@ -5,6 +5,7 @@ import '../../../core/network/api_client.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/entities/user.dart';
 import '../domain/entities/sales_models.dart';
+import '../domain/entities/manager_info.dart';
 import 'sales_repository.dart';
 
 class ApiSalesRepository implements SalesRepository {
@@ -41,6 +42,7 @@ class ApiSalesRepository implements SalesRepository {
       final status = linkData['status'] as String?;
       final linkId = linkData['id'] as int?;
       final assignedSalesRepId = linkData['assigned_sales_rep_id'] as int?;
+      final requestMessage = linkData['request_message'] as String?;
       
       if (consumerId != null && linkId != null && !consumerIds.contains(consumerId)) {
         consumerIds.add(consumerId);
@@ -49,7 +51,7 @@ class ApiSalesRepository implements SalesRepository {
         if (consumerResp.statusCode == 200) {
           final consumerJson = jsonDecode(consumerResp.body) as Map<String, dynamic>;
           final consumer = SalesConsumer.fromJson(consumerJson);
-          // Update status from link and include linkId
+          // Update status from link and include linkId and request message
           consumers.add(SalesConsumer(
             id: consumer.id,
             name: consumer.name,
@@ -57,6 +59,7 @@ class ApiSalesRepository implements SalesRepository {
             city: consumer.city,
             linkId: linkId,
             assignedSalesRepId: assignedSalesRepId,
+            requestMessage: requestMessage,
           ));
         }
       }
@@ -160,7 +163,7 @@ class ApiSalesRepository implements SalesRepository {
   @override
   Future<void> acceptOrder(int orderId) async {
     final body = {
-      'status': 'accepted',
+      'status': 'in_progress',
     };
     final resp = await _client.put('/orders/$orderId', body: body);
     if (resp.statusCode != 200) {
@@ -243,9 +246,9 @@ class ApiSalesRepository implements SalesRepository {
 
   @override
   Future<void> rejectLink(int linkId) async {
-    // Update link status to "removed" (backend doesn't have "rejected", uses "removed")
+    // Update link status to "rejected"
     final body = {
-      'status': 'removed',
+      'status': 'rejected',
     };
     final resp = await _client.put('/links/$linkId', body: body);
     if (resp.statusCode != 200) {
@@ -326,6 +329,20 @@ class ApiSalesRepository implements SalesRepository {
         }
       }
     }
+  }
+
+  @override
+  Future<List<ManagerInfo>> getManagers() async {
+    final user = await _ensureUser();
+    final supplierId = user.supplierId!;
+    
+    // Get all users for this supplier with role MANAGER
+    final resp = await _client.get('/users/?supplier_id=$supplierId&role=manager');
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load managers: ${resp.statusCode} ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as List<dynamic>;
+    return data.map((e) => ManagerInfo.fromJson(e as Map<String, dynamic>)).toList();
   }
 }
 

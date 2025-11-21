@@ -214,6 +214,8 @@ class Chat {
   final DateTime lastMessageAt;
   final bool isComplaint; // Highlight with red border if true
   final int? complaintId; // Link to complaint if this is a complaint chat
+  final bool isEscalated; // Whether complaint is escalated
+  final String? escalatedToManagerName; // Name of manager it's escalated to
 
   Chat({
     required this.id,
@@ -224,6 +226,8 @@ class Chat {
     required this.lastMessageAt,
     this.isComplaint = false,
     this.complaintId,
+    this.isEscalated = false,
+    this.escalatedToManagerName,
   });
 }
 

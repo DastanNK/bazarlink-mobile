@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import '../domain/entities/sales_models.dart';
+import '../domain/entities/manager_info.dart';
 import 'sales_repository.dart';
 
 class MockSalesRepository implements SalesRepository {
@@ -279,5 +280,13 @@ class MockSalesRepository implements SalesRepository {
         assignedSalesRepId: _consumers[idx].assignedSalesRepId,
       );
     }
+  }
+
+  @override
+  Future<List<ManagerInfo>> getManagers() async {
+    return [
+      ManagerInfo(id: 1, name: 'Manager One', email: 'manager1@example.com'),
+      ManagerInfo(id: 2, name: 'Manager Two', email: 'manager2@example.com'),
+    ];
   }
 }

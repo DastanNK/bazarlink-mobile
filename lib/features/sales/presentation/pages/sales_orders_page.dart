@@ -16,6 +16,7 @@ class SalesOrdersPage extends StatefulWidget {
 
 class _SalesOrdersPageState extends State<SalesOrdersPage> {
   late Future<List<SalesOrder>> _future;
+  String _statusFilter = 'all'; // all, pending, in_progress, completed, rejected, cancelled
 
   @override
   void initState() {
@@ -27,6 +28,29 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
     setState(() {
       _future = widget.repository.getOrders();
     });
+  }
+
+  List<SalesOrder> _filterOrders(List<SalesOrder> orders) {
+    if (_statusFilter == 'all') return orders;
+    
+    return orders.where((order) {
+      final status = order.status.toLowerCase().replaceAll(' ', '_');
+      switch (_statusFilter) {
+        case 'pending':
+          return status == 'pending';
+        case 'in_progress':
+          return status == 'in_progress' || status == 'inprogress' || status == 'accepted';
+        case 'completed':
+          return status == 'completed';
+        case 'rejected':
+          return status == 'rejected';
+        case 'cancelled':
+        case 'canceled':
+          return status == 'cancelled' || status == 'canceled';
+        default:
+          return true;
+      }
+    }).toList();
   }
 
   Future<void> _handleAcceptOrder(SalesOrder order) async {
@@ -217,13 +241,49 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
           );
         }
         final list = snapshot.data!;
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            itemBuilder: (_, i) {
-              final o = list[i];
+        final filteredList = _filterOrders(list);
+        return Column(
+          children: [
+            // Filter tabs
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterChip(theme, l10n.allCategories, 'all'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, l10n.pending, 'pending'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, l10n.inProcess, 'in_progress'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, l10n.completed, 'completed'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, l10n.rejected, 'rejected'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(theme, 'Cancelled', 'cancelled'),
+                  ],
+                ),
+              ),
+            ),
+            // Orders list
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: filteredList.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No orders found',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredList.length,
+                        itemBuilder: (_, i) {
+                          final o = filteredList[i];
               final isPending = o.status == 'pending' || o.status == 'Pending';
               final statusColor = _getStatusColor(o.status);
               return Card(
@@ -364,8 +424,34 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
               );
             },
           ),
+                ),
+              ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildFilterChip(ThemeData theme, String labelText, String value) {
+    final isSelected = _statusFilter == value;
+    return FilterChip(
+      label: Text(labelText),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (isSelected) {
+            _statusFilter = 'all';
+          } else {
+            _statusFilter = value;
+          }
+        });
+      },
+      selectedColor: Colors.green[100],
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.green[900] : theme.colorScheme.onSurface,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ class SalesConsumer {
   final String? city;
   final int linkId; // ID of the link for this consumer
   final int? assignedSalesRepId; // ID of assigned sales rep (null if not assigned)
+  final String? requestMessage; // Message from consumer when requesting link
 
   SalesConsumer({
     required this.id,
@@ -14,6 +15,7 @@ class SalesConsumer {
     this.city,
     required this.linkId,
     this.assignedSalesRepId,
+    this.requestMessage,
   });
 
   factory SalesConsumer.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class SalesConsumer {
       city: json['city'] as String?,
       linkId: json['link_id'] as int? ?? 0, // Will be set from link data
       assignedSalesRepId: json['assigned_sales_rep_id'] as int?,
+      requestMessage: json['request_message'] as String?,
     );
   }
 }
@@ -64,6 +67,8 @@ class SalesComplaint {
   final String status;
   final String? description;
   final int? linkId; // Link ID for chat
+  final bool isEscalated; // Whether complaint is escalated
+  final String? escalatedToManagerName; // Name of manager it's escalated to
 
   SalesComplaint({
     required this.id,
@@ -72,6 +77,8 @@ class SalesComplaint {
     required this.status,
     this.description,
     this.linkId,
+    this.isEscalated = false,
+    this.escalatedToManagerName,
   });
 
   factory SalesComplaint.fromJson(Map<String, dynamic> json, {String? consumerName}) {
@@ -82,6 +89,8 @@ class SalesComplaint {
       status: json['status'] as String,
       description: json['description'] as String?,
       linkId: json['link_id'] as int?,
+      isEscalated: json['status'] == 'escalated' || json['escalated_to_manager_id'] != null,
+      escalatedToManagerName: json['escalated_to_manager_name'] as String?,
     );
   }
 }

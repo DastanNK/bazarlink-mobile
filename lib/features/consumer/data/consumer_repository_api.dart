@@ -729,6 +729,12 @@ class ApiConsumerRepository implements ConsumerRepository {
     final supplierId = json['supplier_id'] as int;
     final supplierName = supplierNames?[supplierId] ?? 'Supplier #$supplierId';
     
+    // Check if there's a complaint associated with this link
+    final complaintId = json['complaint_id'] as int?;
+    final isComplaint = complaintId != null;
+    final isEscalated = json['complaint_escalated'] as bool? ?? false;
+    final escalatedToManagerName = json['escalated_to_manager_name'] as String?;
+    
     return Chat(
       id: json['id'] as int,
       supplierId: supplierId,
@@ -738,7 +744,10 @@ class ApiConsumerRepository implements ConsumerRepository {
       lastMessageAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : DateTime.now(),
-      isComplaint: false,
+      isComplaint: isComplaint,
+      complaintId: complaintId,
+      isEscalated: isEscalated,
+      escalatedToManagerName: escalatedToManagerName,
     );
   }
 

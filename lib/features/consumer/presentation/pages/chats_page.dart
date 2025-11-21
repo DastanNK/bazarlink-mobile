@@ -328,13 +328,33 @@ class _ChatsPageState extends State<ChatsPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (chat.isComplaint)
+                    if (chat.isComplaint) ...[
                       Text(
                         l10n.complaints,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.red[700],
                         ),
                       ),
+                      if (chat.isEscalated) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.escalator_warning, size: 14, color: Colors.purple[700]),
+                            const SizedBox(width: 4),
+                            Text(
+                              chat.escalatedToManagerName != null
+                                  ? 'Escalated to ${chat.escalatedToManagerName}'
+                                  : 'Escalated to Manager',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.purple[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),

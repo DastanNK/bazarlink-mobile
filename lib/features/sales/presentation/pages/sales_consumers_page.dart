@@ -39,6 +39,7 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
         return Colors.green;
       case 'blocked':
       case 'removed':
+      case 'rejected':
         return Colors.red;
       default:
         return Colors.grey;
@@ -208,6 +209,8 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
           return status == 'accepted';
         case 'removed':
           return status == 'removed' || status == 'rejected'; // Support both for backward compatibility
+        case 'rejected':
+          return status == 'rejected' || status == 'removed'; // Support both for backward compatibility
         case 'blocked':
           return status == 'blocked';
         default:
@@ -379,6 +382,43 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                           ),
                         ],
                       ),
+                      // Request message if pending
+                      if (isPending && c.requestMessage != null && c.requestMessage!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.message, size: 16, color: Colors.blue[700]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Request Message:',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: Colors.blue[900],
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                c.requestMessage!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.blue[900],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       // Action buttons
                       if (isPending) ...[
                         const SizedBox(height: 12),
