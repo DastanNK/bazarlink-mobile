@@ -201,6 +201,7 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
     if (_statusFilter == 'all') return consumers;
     
     return consumers.where((consumer) {
+      // Database enum values: pending, accepted, removed, blocked
       final status = consumer.status.toLowerCase();
       switch (_statusFilter) {
         case 'pending':
@@ -208,9 +209,9 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
         case 'accepted':
           return status == 'accepted';
         case 'removed':
-          return status == 'removed' || status == 'rejected'; // Support both for backward compatibility
+          return status == 'removed'; // Database uses 'removed', not 'rejected'
         case 'rejected':
-          return status == 'rejected' || status == 'removed'; // Support both for backward compatibility
+          return status == 'removed'; // Map 'rejected' filter to 'removed' status
         case 'blocked':
           return status == 'blocked';
         default:
@@ -304,9 +305,10 @@ class _SalesConsumersPageState extends State<SalesConsumersPage> {
                         itemCount: filteredList.length,
                         itemBuilder: (_, i) {
                           final c = filteredList[i];
-                          final isPending = c.status == 'pending';
-                          final isAccepted = c.status == 'accepted';
-                          final isRejected = c.status == 'removed' || c.status == 'rejected';
+                          // Database enum values: pending, accepted, removed, blocked
+                          final isPending = c.status.toLowerCase() == 'pending';
+                          final isAccepted = c.status.toLowerCase() == 'accepted';
+                          final isRejected = c.status.toLowerCase() == 'removed'; // Database uses 'removed'
                           final isAssigned = c.assignedSalesRepId != null;
                           final statusColor = _getStatusColor(c.status);
               

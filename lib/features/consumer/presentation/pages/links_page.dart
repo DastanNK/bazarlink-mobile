@@ -1,13 +1,10 @@
 // lib/features/consumer/presentation/pages/links_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
-import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/consumer_models.dart';
-import '../cart_provider.dart';
 import 'product_detail_page.dart';
 
 class LinksPage extends StatefulWidget {
@@ -732,12 +729,8 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
 
   Future<void> _refreshProducts() async {
     setState(() {
-      if (_searchQuery.isNotEmpty && _searchAllProducts) {
-        // Load all products for search
-        _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code);
-      } else {
-        _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code, category: _selectedCategory);
-      }
+      // Always load all products, filtering will be done in the UI
+      _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code);
     });
   }
 
@@ -746,13 +739,12 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
       // If clicking the same selected category, deselect (show all categories)
       if (_selectedCategory == category) {
         _selectedCategory = null;
-        _searchQuery = '';
-        _searchController.clear();
       } else {
         _selectedCategory = category;
-        _searchQuery = '';
-        _searchController.clear();
       }
+      _searchQuery = '';
+      _searchController.clear();
+      _searchAllProducts = false;
       _refreshProducts();
     });
   }
@@ -1512,7 +1504,6 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
   }
 
   Widget _buildProductCard(BuildContext context, ThemeData theme, SupplierProduct product) {
-    final l10n = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -1606,40 +1597,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    FilledButton.icon(
-                      onPressed: () {
-                        final cartProvider = context.read<CartProvider>();
-                        final cartItem = CartItem(
-                          productId: product.productId,
-                          productName: product.productName,
-                          supplierId: product.supplierId,
-                          supplierCode: product.supplierCode,
-                          price: product.price,
-                          discountPrice: product.discountPrice,
-                          currency: product.currency,
-                          unit: product.unit,
-                          imageUrl: product.imageUrl,
-                          quantity: 1,
-                        );
-                        cartProvider.addItem(cartItem);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${product.productName} ${l10n.addToCart.toLowerCase()}'),
-                              backgroundColor: Colors.green[700],
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.add_shopping_cart, size: 16),
-                      label: Text(l10n.addToCart),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green[700],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                    ),
+                    // Add to cart button removed - now only in product detail page
                   ],
                 ),
               ),

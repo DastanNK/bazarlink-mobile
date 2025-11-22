@@ -22,6 +22,13 @@ class _LoginPageState extends State<LoginPage> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // Ensure password field is always empty
+    _passwordCtrl.clear();
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -76,6 +83,7 @@ class _LoginPageState extends State<LoginPage> {
               controller: _passwordCtrl,
               label: l10n.password,
               obscureText: true,
+              autofillHints: null, // Disable autofill to prevent pre-filled passwords
             ),
             const SizedBox(height: 16),
             if (_error != null)

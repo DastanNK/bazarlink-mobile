@@ -31,6 +31,35 @@ class SalesConsumer {
   }
 }
 
+class SalesOrderItem {
+  final int id;
+  final int productId;
+  final double quantity;
+  final double unitPrice;
+  final double totalPrice;
+  final String? productName; // Product name for display
+
+  SalesOrderItem({
+    required this.id,
+    required this.productId,
+    required this.quantity,
+    required this.unitPrice,
+    required this.totalPrice,
+    this.productName,
+  });
+
+  factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
+    return SalesOrderItem(
+      id: json['id'] as int? ?? 0,
+      productId: json['product_id'] as int,
+      quantity: double.tryParse(json['quantity'].toString()) ?? 0.0,
+      unitPrice: double.tryParse(json['unit_price'].toString()) ?? 0.0,
+      totalPrice: double.tryParse(json['total_price'].toString()) ?? 0.0,
+      productName: json['product_name'] as String?,
+    );
+  }
+}
+
 class SalesOrder {
   final int id;
   final String consumerName;
@@ -44,6 +73,9 @@ class SalesOrder {
   final String? deliveryAddress;
   final DateTime? deliveryDate;
   final String? notes;
+  
+  // Order items
+  final List<SalesOrderItem> items;
 
   SalesOrder({
     required this.id,
@@ -56,12 +88,18 @@ class SalesOrder {
     this.deliveryAddress,
     this.deliveryDate,
     this.notes,
+    this.items = const [],
   });
 
   factory SalesOrder.fromJson(
     Map<String, dynamic> json, {
     String? consumerName,
   }) {
+    final itemsJson = json['items'] as List<dynamic>? ?? [];
+    final items = itemsJson.map((itemJson) {
+      return SalesOrderItem.fromJson(itemJson as Map<String, dynamic>);
+    }).toList();
+    
     return SalesOrder(
       id: json['id'] as int,
       consumerName: consumerName ?? 'Consumer #${json['consumer_id']}',
@@ -75,6 +113,7 @@ class SalesOrder {
           ? DateTime.parse(json['delivery_date'] as String)
           : null,
       notes: json['notes'] as String?,
+      items: items,
     );
   }
 }

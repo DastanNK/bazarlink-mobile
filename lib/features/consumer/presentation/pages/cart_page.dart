@@ -138,6 +138,21 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _handleReorder(ConsumerOrder order, CartProvider cartProvider) async {
+    // Check if consumer is still linked to the supplier
+    if (order.supplierCode != null) {
+      final isLinked = await widget.repository.isLinkedToSupplier(order.supplierCode!);
+      if (!isLinked) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You are no longer linked to this supplier. Cannot reorder.'),
+            backgroundColor: Colors.orange[700],
+          ),
+        );
+        return;
+      }
+    }
+    
     // Fetch actual order items from repository
     try {
       final orderItems = await widget.repository.getOrderItems(order.id);
@@ -745,18 +760,19 @@ class _CartPageState extends State<CartPage> {
     if (_orderFilter == 'all') return orders;
     
     return orders.where((order) {
+      // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
       final status = order.status.toLowerCase().replaceAll(' ', '_');
       switch (_orderFilter) {
         case 'pending':
           return status == 'pending';
         case 'in_process':
-          return status == 'in_progress' || status == 'in_process' || status == 'in progress';
+          return status == 'in_progress' || status == 'accepted'; // accepted is also in progress
         case 'completed':
-          return status == 'completed' || status == 'delivered' || status == 'accepted';
+          return status == 'completed';
         case 'rejected':
           return status == 'rejected';
         case 'canceled':
-          return status == 'canceled' || status == 'cancelled';
+          return status == 'cancelled'; // Database uses 'cancelled' (double l)
         default:
           return true;
       }
@@ -881,15 +897,47 @@ class _CartPageState extends State<CartPage> {
     AppLocalizations l10n,
     ConsumerOrder order,
   ) {
-    // Fetch actual order items from repository
-    return FutureBuilder<List<OrderItem>>(
-      future: widget.repository.getOrderItems(order.id),
-      builder: (context, snapshot) {
-        final items = snapshot.hasData ? snapshot.data! : order.items;
+    // Check if consumer is still linked to the supplier
+    return FutureBuilder<bool>(
+      future: order.supplierCode != null 
+          ? widget.repository.isLinkedToSupplier(order.supplierCode!)
+          : Future.value(false),
+      builder: (context, linkSnapshot) {
+        // If not linked, show unlinked message
+        if (linkSnapshot.hasData && !linkSnapshot.data! && order.supplierCode != null) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'You are no longer linked to this supplier. Order details are not available.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.orange[900],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        // Fetch actual order items from repository
+        return FutureBuilder<List<OrderItem>>(
+          future: widget.repository.getOrderItems(order.id),
+          builder: (context, snapshot) {
+            final items = snapshot.hasData ? snapshot.data! : order.items;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Supplier info if available
             if (order.supplierCode != null || order.supplierId != null) ...[
               FutureBuilder<Map<String, String>>(
@@ -984,8 +1032,8 @@ class _CartPageState extends State<CartPage> {
             ),
             // Cancel / reject reason (if any)
             const SizedBox(height: 8),
-            if ((order.status.toLowerCase() == 'cancelled' ||
-                    order.status.toLowerCase() == 'canceled' ||
+            // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
+            if ((order.status.toLowerCase() == 'cancelled' || // Database uses 'cancelled' (double l)
                     order.status.toLowerCase() == 'rejected') &&
                 order.notes != null &&
                 order.notes!.isNotEmpty)
@@ -1027,6 +1075,8 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
           ],
+        );
+          },
         );
       },
     );
