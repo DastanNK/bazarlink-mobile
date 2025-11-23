@@ -30,10 +30,17 @@ class _LinksPageState extends State<LinksPage> {
     _myLinksFuture = widget.repository.getLinks();
     _allSuppliersFuture = widget.repository.getAllSuppliers();
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
-      _refreshSuppliers();
+      final newQuery = _searchController.text.trim();
+      if (newQuery != _searchQuery) {
+        setState(() {
+          _searchQuery = newQuery;
+        });
+        // Only refresh "All Suppliers" via API if we're on that tab
+        if (!_showMySuppliers) {
+          _refreshSuppliers();
+        }
+        // For "My Suppliers", filtering is done locally, no API call needed
+      }
     });
   }
 
@@ -46,15 +53,23 @@ class _LinksPageState extends State<LinksPage> {
   Future<void> _refresh() async {
     setState(() {
       _myLinksFuture = widget.repository.getLinks();
-      _allSuppliersFuture = widget.repository.getAllSuppliers();
+      _allSuppliersFuture = widget.repository.getAllSuppliers(
+        searchQuery: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
+      );
     });
   }
 
   Future<void> _refreshSuppliers() async {
     setState(() {
       _allSuppliersFuture = widget.repository.getAllSuppliers(
-        searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+        searchQuery: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
       );
+    });
+  }
+
+  Future<void> _refreshMyLinks() async {
+    setState(() {
+      _myLinksFuture = widget.repository.getLinks();
     });
   }
 
@@ -258,6 +273,13 @@ class _LinksPageState extends State<LinksPage> {
                       icon: Icon(Icons.clear, color: theme.colorScheme.onSurface),
                       onPressed: () {
                         _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                        });
+                        // Refresh suppliers when clearing search
+                        if (!_showMySuppliers) {
+                          _refreshSuppliers();
+                        }
                       },
                     )
                   : null,
@@ -285,8 +307,8 @@ class _LinksPageState extends State<LinksPage> {
                     setState(() {
                       _showMySuppliers = true;
                     });
-                    // Refresh suppliers when switching tabs
-                    _refreshSuppliers();
+                    // Refresh my links when switching to "My Suppliers" tab
+                    _refreshMyLinks();
                   },
                   selectedColor: Colors.green[100],
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -314,7 +336,7 @@ class _LinksPageState extends State<LinksPage> {
                     setState(() {
                       _showMySuppliers = false;
                     });
-                    // Refresh suppliers when switching tabs
+                    // Refresh all suppliers when switching to "All Suppliers" tab
                     _refreshSuppliers();
                   },
                   selectedColor: Colors.green[100],
@@ -391,12 +413,15 @@ class _LinksPageState extends State<LinksPage> {
               return supplier;
             }).toList();
 
-            // Apply search filter
-            final filteredSuppliers = _searchQuery.isEmpty
+            // Apply search filter locally (case-insensitive, matches name or city)
+            final searchLower = _searchQuery.toLowerCase().trim();
+            final filteredSuppliers = searchLower.isEmpty
                 ? linkedSuppliers
-                : linkedSuppliers.where((s) => 
-                    s.name.toLowerCase().contains(_searchQuery.toLowerCase())
-                  ).toList();
+                : linkedSuppliers.where((s) {
+                    final nameMatch = s.name.toLowerCase().contains(searchLower);
+                    final cityMatch = s.city?.toLowerCase().contains(searchLower) ?? false;
+                    return nameMatch || cityMatch;
+                  }).toList();
 
               return RefreshIndicator(
                 onRefresh: _refresh,
@@ -454,12 +479,16 @@ class _LinksPageState extends State<LinksPage> {
         }
 
         final suppliers = snapshot.data!;
-        // Apply search filter
-        final filteredSuppliers = _searchQuery.isEmpty
+        // Apply search filter locally as well (case-insensitive, matches name or city)
+        // This ensures search works even if API doesn't filter properly
+        final searchLower = _searchQuery.toLowerCase().trim();
+        final filteredSuppliers = searchLower.isEmpty
             ? suppliers
-            : suppliers.where((s) => 
-                s.name.toLowerCase().contains(_searchQuery.toLowerCase())
-              ).toList();
+            : suppliers.where((s) {
+                final nameMatch = s.name.toLowerCase().contains(searchLower);
+                final cityMatch = s.city?.toLowerCase().contains(searchLower) ?? false;
+                return nameMatch || cityMatch;
+              }).toList();
         
         return RefreshIndicator(
           onRefresh: _refreshSuppliers,

@@ -127,6 +127,7 @@ class SalesComplaint {
   final int? linkId; // Link ID for chat
   final bool isEscalated; // Whether complaint is escalated
   final String? escalatedToManagerName; // Name of manager it's escalated to
+  final int? escalatedToUserId; // ID of manager it's escalated to
 
   SalesComplaint({
     required this.id,
@@ -137,6 +138,7 @@ class SalesComplaint {
     this.linkId,
     this.isEscalated = false,
     this.escalatedToManagerName,
+    this.escalatedToUserId,
   });
 
   factory SalesComplaint.fromJson(Map<String, dynamic> json, {String? consumerName}) {
@@ -147,8 +149,9 @@ class SalesComplaint {
       status: json['status'] as String,
       description: json['description'] as String?,
       linkId: json['link_id'] as int?,
-      isEscalated: json['status'] == 'escalated' || json['escalated_to_manager_id'] != null,
+      isEscalated: json['status'] == 'escalated' || json['escalated_to_user_id'] != null,
       escalatedToManagerName: json['escalated_to_manager_name'] as String?,
+      escalatedToUserId: json['escalated_to_user_id'] as int?,
     );
   }
 }

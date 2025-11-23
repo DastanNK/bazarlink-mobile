@@ -1,11 +1,14 @@
 // lib/features/sales/presentation/pages/sales_complaints_page.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/sales_repository.dart';
 import '../../domain/entities/sales_models.dart';
 import '../../domain/entities/manager_info.dart';
+import '../../../auth/data/auth_repository.dart';
+import '../../../auth/domain/value_objects.dart';
 
 class SalesComplaintsPage extends StatefulWidget {
   final SalesRepository repository;
@@ -23,11 +26,29 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   int? _selectedComplaintId;
   late Future<List<SalesMessage>> _messagesFuture;
   String _selectedStatusFilter = 'all'; // 'all', 'open', 'in_progress', 'resolved', 'escalated'
+  UserRole? _currentUserRole;
+  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _future = widget.repository.getComplaints();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final authRepo = Provider.of<AuthRepository>(context, listen: false);
+      final user = await authRepo.getCurrentUser();
+      if (user != null) {
+        setState(() {
+          _currentUserRole = user.role;
+          _currentUserId = user.id;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load current user: $e');
+    }
   }
 
   @override
@@ -284,10 +305,35 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
         }
         final list = snapshot.data!;
         
+        // Filter complaints by role: sales reps should NOT see escalated complaints
+        // Managers should ONLY see escalated complaints (escalated to them specifically)
+        final roleFilteredList = list.where((c) {
+          if (_currentUserRole == UserRole.sales_representative) {
+            // Sales reps should NOT see escalated complaints
+            return c.status != 'escalated' && !c.isEscalated;
+          } else if (_currentUserRole == UserRole.manager) {
+            // Managers should ONLY see escalated complaints escalated to them
+            if (_currentUserId == null) {
+              return false; // Can't determine if escalated to this manager
+            }
+            // Must be escalated status AND escalated to this specific manager
+            if (c.escalatedToUserId != null) {
+              return c.status == 'escalated' && c.escalatedToUserId == _currentUserId;
+            }
+            // If no escalated_to_user_id, don't show it (shouldn't happen, but safety check)
+            return false;
+          } else if (_currentUserRole == UserRole.owner) {
+            // Owners can see all complaints
+            return true;
+          }
+          // Default: show all if role is unknown (fallback)
+          return true;
+        }).toList();
+        
         // Filter complaints by status
         final filteredList = _selectedStatusFilter == 'all'
-            ? list
-            : list.where((c) => c.status == _selectedStatusFilter).toList();
+            ? roleFilteredList
+            : roleFilteredList.where((c) => c.status == _selectedStatusFilter).toList();
         
         // If a complaint is selected, show chat detail
         if (_selectedComplaintId != null) {
@@ -317,12 +363,18 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
                   children: [
                     _buildStatusTab(theme, l10n, 'all', 'All'),
                     const SizedBox(width: 8),
-                    _buildStatusTab(theme, l10n, 'open', 'Open'),
-                    const SizedBox(width: 8),
-                    _buildStatusTab(theme, l10n, 'in_progress', 'In Progress'),
-                    const SizedBox(width: 8),
-                    _buildStatusTab(theme, l10n, 'escalated', 'Escalated'),
-                    const SizedBox(width: 8),
+                    // Only show non-escalated status tabs for sales reps
+                    if (_currentUserRole != UserRole.manager) ...[
+                      _buildStatusTab(theme, l10n, 'open', 'Open'),
+                      const SizedBox(width: 8),
+                      _buildStatusTab(theme, l10n, 'in_progress', 'In Progress'),
+                      const SizedBox(width: 8),
+                    ],
+                    // Only show escalated tab for managers, or if user is owner
+                    if (_currentUserRole == UserRole.manager || _currentUserRole == UserRole.owner) ...[
+                      _buildStatusTab(theme, l10n, 'escalated', 'Escalated'),
+                      const SizedBox(width: 8),
+                    ],
                     _buildStatusTab(theme, l10n, 'resolved', 'Resolved'),
                   ],
                 ),
@@ -471,8 +523,13 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
     SalesComplaint complaint,
   ) {
     final statusColor = _getStatusColor(complaint.status);
-    final canResolve = complaint.status == 'open' || complaint.status == 'in_progress';
-    final canEscalate = complaint.status == 'open' || complaint.status == 'in_progress';
+    // Sales reps can resolve/escalate non-escalated complaints
+    // Managers can resolve escalated complaints
+    final canResolve = _currentUserRole == UserRole.manager
+        ? complaint.status == 'escalated'
+        : (complaint.status == 'open' || complaint.status == 'in_progress');
+    final canEscalate = _currentUserRole == UserRole.sales_representative &&
+        (complaint.status == 'open' || complaint.status == 'in_progress');
     
     return Column(
       children: [
