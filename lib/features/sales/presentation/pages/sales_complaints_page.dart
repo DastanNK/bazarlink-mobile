@@ -22,6 +22,7 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   final TextEditingController _escalationController = TextEditingController();
   int? _selectedComplaintId;
   late Future<List<SalesMessage>> _messagesFuture;
+  String _selectedStatusFilter = 'all'; // 'all', 'open', 'in_progress', 'resolved', 'escalated'
 
   @override
   void initState() {
@@ -283,6 +284,11 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
         }
         final list = snapshot.data!;
         
+        // Filter complaints by status
+        final filteredList = _selectedStatusFilter == 'all'
+            ? list
+            : list.where((c) => c.status == _selectedStatusFilter).toList();
+        
         // If a complaint is selected, show chat detail
         if (_selectedComplaintId != null) {
           final selectedComplaint = list.firstWhere(
@@ -292,122 +298,168 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
           return _buildComplaintChat(context, theme, l10n, selectedComplaint);
         }
         
-        // Otherwise, show list of complaints
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            itemBuilder: (_, i) {
-              final c = list[i];
-              final statusColor = _getStatusColor(c.status);
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                elevation: c.status == 'open' || c.status == 'in_progress' ? 2 : 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: (c.status == 'open' || c.status == 'in_progress')
-                      ? BorderSide(color: Colors.red[300]!, width: 2)
-                      : BorderSide.none,
+        // Otherwise, show list of complaints with status filter tabs
+        return Column(
+          children: [
+            // Status filter tabs
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                border: Border(
+                  bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
                 ),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedComplaintId = c.id;
-                      // Get complaint chat messages using link_id
-                      final linkId = c.linkId ?? c.id; // Fallback to complaint id if link_id not available
-                      _messagesFuture = widget.repository.getChatMessages(linkId);
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _buildStatusTab(theme, l10n, 'all', 'All'),
+                    const SizedBox(width: 8),
+                    _buildStatusTab(theme, l10n, 'open', 'Open'),
+                    const SizedBox(width: 8),
+                    _buildStatusTab(theme, l10n, 'in_progress', 'In Progress'),
+                    const SizedBox(width: 8),
+                    _buildStatusTab(theme, l10n, 'escalated', 'Escalated'),
+                    const SizedBox(width: 8),
+                    _buildStatusTab(theme, l10n, 'resolved', 'Resolved'),
+                  ],
+                ),
+              ),
+            ),
+            // Complaints list
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: filteredList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.red[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.report_problem,
-                                color: Colors.red[700],
-                                size: 24,
-                              ),
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 64,
+                              color: theme.colorScheme.onSurface.withOpacity(0.3),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c.title,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    c.consumerName,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                c.status,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (c.description != null && c.description!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            c.description!,
-                            style: theme.textTheme.bodyMedium,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.chat_bubble_outline, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                            const SizedBox(width: 4),
+                            const SizedBox(height: 16),
                             Text(
-                              'Open Chat',
-                              style: theme.textTheme.labelSmall?.copyWith(
+                              l10n.noComplaints,
+                              style: theme.textTheme.titleMedium?.copyWith(
                                 color: theme.colorScheme.onSurface.withOpacity(0.6),
                               ),
                             ),
-                            const Spacer(),
-                            Icon(Icons.chevron_right, color: theme.colorScheme.onSurface.withOpacity(0.5)),
                           ],
                         ),
-                      ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredList.length,
+                        itemBuilder: (_, i) {
+                          final c = filteredList[i];
+                          final statusColor = _getStatusColor(c.status);
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: c.status == 'open' || c.status == 'in_progress' ? 2 : 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: (c.status == 'open' || c.status == 'in_progress')
+                                  ? BorderSide(color: Colors.red[300]!, width: 2)
+                                  : BorderSide.none,
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedComplaintId = c.id;
+                                  // Get complaint chat messages using link_id
+                                  final linkId = c.linkId ?? c.id; // Fallback to complaint id if link_id not available
+                                  _messagesFuture = widget.repository.getChatMessages(linkId);
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: Colors.red[100],
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            Icons.report_problem,
+                                            color: Colors.red[700],
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                c.title,
+                                                style: theme.textTheme.titleMedium?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                c.consumerName,
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            c.status,
+                                            style: theme.textTheme.labelSmall?.copyWith(
+                                              color: statusColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    // Description removed - only show title as requested
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.chat_bubble_outline, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Open Chat',
+                                          style: theme.textTheme.labelSmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Icon(Icons.chevron_right, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        );
+              ],
+            );
       },
     );
   }
@@ -496,20 +548,7 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
                   ),
                 ],
               ),
-              if (complaint.description != null && complaint.description!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    complaint.description!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-              ],
+              // Description removed - only show title as requested
               if (canResolve || canEscalate) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -584,38 +623,110 @@ class _SalesComplaintsPageState extends State<SalesComplaintsPage> {
   Widget _buildMessageBubble(BuildContext context, ThemeData theme, SalesMessage message) {
     // This would need to check current user ID to determine if message is from current user
     final isMe = false; // TODO: Get current user ID and compare
+    // Get sender role from message - need to check if backend provides this
+    // For now, we'll need to fetch user info to determine role
+    final senderRole = message.senderRole; // This field needs to be added back to SalesMessage
     
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isMe ? Colors.green[700] : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isMe ? Colors.white : theme.colorScheme.onSurface,
+    return Column(
+      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        // Sender role badge - show at top of message bubble for manager/sales
+        if (senderRole != null && !isMe)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: 4,
+              left: isMe ? 0 : 8,
+              right: isMe ? 8 : 0,
+            ),
+            child: Align(
+              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: senderRole == 'manager' ? Colors.purple[50] : Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: senderRole == 'manager' ? Colors.purple[300]! : Colors.blue[300]!,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      senderRole == 'manager' ? Icons.badge : Icons.person,
+                      size: 14,
+                      color: senderRole == 'manager' ? Colors.purple[700] : Colors.blue[700],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      senderRole == 'manager' ? context.l10n.manager : context.l10n.salesRepresentative,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: senderRole == 'manager' ? Colors.purple[700] : Colors.blue[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withOpacity(0.6),
-              ),
+          ),
+        Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
-          ],
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isMe ? Colors.green[700] : theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: isMe ? Colors.white70 : theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildStatusTab(ThemeData theme, AppLocalizations l10n, String status, String label) {
+    final isSelected = _selectedStatusFilter == status;
+    final statusColor = _getStatusColor(status == 'all' ? 'open' : status);
+    
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _selectedStatusFilter = status;
+        });
+      },
+      selectedColor: statusColor.withOpacity(0.2),
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      checkmarkColor: statusColor,
+      labelStyle: TextStyle(
+        color: isSelected ? statusColor : theme.colorScheme.onSurface,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
 

@@ -266,6 +266,24 @@ class ApiConsumerRepository implements ConsumerRepository {
         }
       }
       
+      // Get sender role from API (sales_rep_id indicates sales rep, manager role indicates manager)
+      String? senderRole;
+      if (!isFromConsumer) {
+        if (json['sales_rep_id'] != null) {
+          senderRole = 'sales';
+        } else if (json['sender_role'] != null) {
+          final role = json['sender_role'] as String;
+          if (role.toLowerCase() == 'manager' || role.toLowerCase() == 'owner') {
+            senderRole = 'manager';
+          } else {
+            senderRole = 'sales';
+          }
+        }
+      }
+      
+      // Check if message is from escalated complaint
+      final isEscalated = json['is_escalated'] as bool? ?? false;
+      
       messages.add(ChatMessage(
         id: json['id'] as int,
         chatId: chatId,
@@ -279,8 +297,8 @@ class ApiConsumerRepository implements ConsumerRepository {
         receiptUrl: null,
         productId: json['product_id'] as int?,
         productName: null,
-        isEscalated: false,
-        senderRole: null,
+        isEscalated: isEscalated,
+        senderRole: senderRole,
       ));
     }
     
@@ -766,9 +784,12 @@ class ApiConsumerRepository implements ConsumerRepository {
       stockQuantity: int.tryParse(productJson['stock_quantity'].toString()) ?? 0,
       unit: productJson['unit'] as String? ?? 'piece',
       minOrderQuantity: int.tryParse(productJson['min_order_quantity'].toString()) ?? 1,
-      deliveryAvailability: productJson['delivery_available'] as bool? ?? false,
-      pickupAvailability: productJson['pickup_available'] as bool? ?? false,
-      leadTimeDays: productJson['lead_time_days'] as int? ?? 0,
+      // Delivery options come from supplier, not product
+      deliveryAvailability: supplierJson['delivery_available'] as bool? ?? false,
+      pickupAvailability: supplierJson['pickup_available'] as bool? ?? false,
+      // Lead time can come from product if specified, otherwise from supplier
+      leadTimeDays: (productJson['lead_time_days'] as int?) ?? 
+                    (supplierJson['lead_time_days'] as int?) ?? 0,
     );
   }
 

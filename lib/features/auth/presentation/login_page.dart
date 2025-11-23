@@ -17,9 +17,16 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController(text: 'password');
+  final _passwordCtrl = TextEditingController();
   bool _isLoading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure password field is always empty
+    _passwordCtrl.clear();
+  }
 
   @override
   void dispose() {
@@ -76,6 +83,7 @@ class _LoginPageState extends State<LoginPage> {
               controller: _passwordCtrl,
               label: l10n.password,
               obscureText: true,
+              autofillHints: null, // Disable autofill to prevent pre-filled passwords
             ),
             const SizedBox(height: 16),
             if (_error != null)

@@ -1,13 +1,10 @@
 // lib/features/consumer/presentation/pages/links_page.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/routing/app_router.dart' show BuildContextX;
 import '../../data/consumer_repository.dart';
-import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/consumer_models.dart';
-import '../cart_provider.dart';
 import 'product_detail_page.dart';
 
 class LinksPage extends StatefulWidget {
@@ -394,13 +391,29 @@ class _LinksPageState extends State<LinksPage> {
               return supplier;
             }).toList();
 
+            // Apply search filter
+            final filteredSuppliers = _searchQuery.isEmpty
+                ? linkedSuppliers
+                : linkedSuppliers.where((s) => 
+                    s.name.toLowerCase().contains(_searchQuery.toLowerCase())
+                  ).toList();
+
               return RefreshIndicator(
                 onRefresh: _refresh,
-                child: ListView.builder(
+                child: filteredSuppliers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No suppliers found',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: linkedSuppliers.length,
+                itemCount: filteredSuppliers.length,
                 itemBuilder: (context, index) {
-                  return _buildSupplierCard(context, theme, l10n, linkedSuppliers[index]);
+                  return _buildSupplierCard(context, theme, l10n, filteredSuppliers[index]);
                 },
               ),
             );
@@ -441,13 +454,29 @@ class _LinksPageState extends State<LinksPage> {
         }
 
         final suppliers = snapshot.data!;
+        // Apply search filter
+        final filteredSuppliers = _searchQuery.isEmpty
+            ? suppliers
+            : suppliers.where((s) => 
+                s.name.toLowerCase().contains(_searchQuery.toLowerCase())
+              ).toList();
+        
         return RefreshIndicator(
           onRefresh: _refreshSuppliers,
-          child: ListView.builder(
+          child: filteredSuppliers.isEmpty
+              ? Center(
+                  child: Text(
+                    'No suppliers found',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                )
+              : ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: suppliers.length,
+            itemCount: filteredSuppliers.length,
             itemBuilder: (context, index) {
-              return _buildSupplierCard(context, theme, l10n, suppliers[index]);
+              return _buildSupplierCard(context, theme, l10n, filteredSuppliers[index]);
             },
           ),
         );
@@ -732,12 +761,8 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
 
   Future<void> _refreshProducts() async {
     setState(() {
-      if (_searchQuery.isNotEmpty && _searchAllProducts) {
-        // Load all products for search
-        _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code);
-      } else {
-        _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code, category: _selectedCategory);
-      }
+      // Always load all products, filtering will be done in the UI
+      _productsFuture = widget.repository.getProductsBySupplier(widget.supplier.code);
     });
   }
 
@@ -746,14 +771,13 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
       // If clicking the same selected category, deselect (show all categories)
       if (_selectedCategory == category) {
         _selectedCategory = null;
-        _searchQuery = '';
-        _searchController.clear();
       } else {
         _selectedCategory = category;
-        _searchQuery = '';
-        _searchController.clear();
       }
-      _refreshProducts();
+      _searchQuery = '';
+      _searchController.clear();
+      _searchAllProducts = false;
+      // No need to refresh products - filtering is done in UI
     });
   }
 
@@ -1283,7 +1307,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                             _selectedCategory = null;
                             _searchQuery = '';
                             _searchController.clear();
-                            _refreshProducts();
+                            // No need to refresh products - filtering is done in UI
                           });
                         },
                         selectedColor: Colors.green[100],
@@ -1307,7 +1331,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                           }
                           _searchQuery = '';
                           _searchController.clear();
-                          _refreshProducts();
+                          // No need to refresh products - filtering is done in UI
                         });
                       },
                       selectedColor: Colors.green[100],
@@ -1512,7 +1536,6 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
   }
 
   Widget _buildProductCard(BuildContext context, ThemeData theme, SupplierProduct product) {
-    final l10n = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -1535,6 +1558,11 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                 product: prod,
                 repository: widget.repository,
                 supplierCode: widget.supplier.code,
+                onNavigateToCart: () {
+                  // Navigate to cart page
+                  // Pop back to ConsumerHomePage (cart is first tab at index 0)
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
               ),
             ),
           );
@@ -1606,40 +1634,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    FilledButton.icon(
-                      onPressed: () {
-                        final cartProvider = context.read<CartProvider>();
-                        final cartItem = CartItem(
-                          productId: product.productId,
-                          productName: product.productName,
-                          supplierId: product.supplierId,
-                          supplierCode: product.supplierCode,
-                          price: product.price,
-                          discountPrice: product.discountPrice,
-                          currency: product.currency,
-                          unit: product.unit,
-                          imageUrl: product.imageUrl,
-                          quantity: 1,
-                        );
-                        cartProvider.addItem(cartItem);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${product.productName} ${l10n.addToCart.toLowerCase()}'),
-                              backgroundColor: Colors.green[700],
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.add_shopping_cart, size: 16),
-                      label: Text(l10n.addToCart),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green[700],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                    ),
+                    // Add to cart button removed - now only in product detail page
                   ],
                 ),
               ),

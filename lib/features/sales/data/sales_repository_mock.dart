@@ -97,6 +97,10 @@ class MockSalesRepository implements SalesRepository {
         total: _orders[idx].total,
         orderNumber: _orders[idx].orderNumber,
         currency: _orders[idx].currency,
+        deliveryMethod: _orders[idx].deliveryMethod,
+        deliveryAddress: _orders[idx].deliveryAddress,
+        deliveryDate: _orders[idx].deliveryDate,
+        notes: _orders[idx].notes,
       );
     }
   }
@@ -113,6 +117,10 @@ class MockSalesRepository implements SalesRepository {
         total: _orders[idx].total,
         orderNumber: _orders[idx].orderNumber,
         currency: _orders[idx].currency,
+        deliveryMethod: _orders[idx].deliveryMethod,
+        deliveryAddress: _orders[idx].deliveryAddress,
+        deliveryDate: _orders[idx].deliveryDate,
+        notes: _orders[idx].notes,
       );
     }
   }
@@ -230,6 +238,10 @@ class MockSalesRepository implements SalesRepository {
         total: _orders[idx].total,
         orderNumber: _orders[idx].orderNumber,
         currency: _orders[idx].currency,
+        deliveryMethod: _orders[idx].deliveryMethod,
+        deliveryAddress: _orders[idx].deliveryAddress,
+        deliveryDate: _orders[idx].deliveryDate,
+        notes: reason,
       );
     }
   }
@@ -246,6 +258,10 @@ class MockSalesRepository implements SalesRepository {
         total: _orders[idx].total,
         orderNumber: _orders[idx].orderNumber,
         currency: _orders[idx].currency,
+        deliveryMethod: _orders[idx].deliveryMethod,
+        deliveryAddress: _orders[idx].deliveryAddress,
+        deliveryDate: _orders[idx].deliveryDate,
+        notes: _orders[idx].notes,
       );
     }
   }

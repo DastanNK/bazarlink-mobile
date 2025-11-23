@@ -24,6 +24,7 @@ class _ConsumerSignUpPageState extends State<ConsumerSignUpPage> {
   final _countryCtrl = TextEditingController(text: 'Kazakhstan');
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
@@ -33,6 +34,8 @@ class _ConsumerSignUpPageState extends State<ConsumerSignUpPage> {
   AppLanguage _language = AppLanguage.en;
   bool _isSubmitting = false;
   String? _error;
+  String? _passwordError;
+  String? _confirmPasswordError;
 
   @override
   void dispose() {
@@ -41,6 +44,7 @@ class _ConsumerSignUpPageState extends State<ConsumerSignUpPage> {
     _countryCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     _phoneCtrl.dispose();
     _cityCtrl.dispose();
     _addressCtrl.dispose();
@@ -49,20 +53,69 @@ class _ConsumerSignUpPageState extends State<ConsumerSignUpPage> {
     super.dispose();
   }
 
+  bool _validatePassword(String password) {
+    // Password must have at least 6 characters with both letters and numbers
+    if (password.length < 6) {
+      return false;
+    }
+    final hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
+    final hasNumber = password.contains(RegExp(r'[0-9]'));
+    return hasLetter && hasNumber;
+  }
+
+  void _validatePasswordFields() {
+    final password = _passwordCtrl.text.trim();
+    final confirmPassword = _confirmPasswordCtrl.text.trim();
+    
+    setState(() {
+      _passwordError = null;
+      _confirmPasswordError = null;
+      
+      if (password.isNotEmpty && !_validatePassword(password)) {
+        _passwordError = 'Password must be at least 6 characters and contain both letters and numbers';
+      }
+      
+      if (confirmPassword.isNotEmpty && password != confirmPassword) {
+        _confirmPasswordError = 'Passwords do not match';
+      }
+    });
+  }
+
   Future<void> _onSubmit() async {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
+    final confirmPassword = _confirmPasswordCtrl.text.trim();
     final fullName = _fullNameCtrl.text.trim();
     final businessName = _businessNameCtrl.text.trim();
     final country = _countryCtrl.text.trim();
 
+    // Validate required fields
     if (email.isEmpty ||
         password.isEmpty ||
+        confirmPassword.isEmpty ||
         fullName.isEmpty ||
         businessName.isEmpty ||
         country.isEmpty) {
       setState(() {
         _error = context.l10n.requiredFieldsMissing;
+      });
+      return;
+    }
+
+    // Validate password format
+    if (!_validatePassword(password)) {
+      setState(() {
+        _passwordError = 'Password must be at least 6 characters and contain both letters and numbers';
+        _error = 'Please fix the password errors';
+      });
+      return;
+    }
+
+    // Validate password confirmation
+    if (password != confirmPassword) {
+      setState(() {
+        _confirmPasswordError = 'Passwords do not match';
+        _error = 'Passwords do not match';
       });
       return;
     }
@@ -173,7 +226,38 @@ class _ConsumerSignUpPageState extends State<ConsumerSignUpPage> {
               controller: _passwordCtrl,
               label: l10n.password,
               obscureText: true,
+              helperText: 'Password must be at least 6 characters with letters and numbers',
+              onChanged: (_) => _validatePasswordFields(),
             ),
+            if (_passwordError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 12),
+                child: Text(
+                  _passwordError!,
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: _confirmPasswordCtrl,
+              label: 'Confirm Password',
+              obscureText: true,
+              onChanged: (_) => _validatePasswordFields(),
+            ),
+            if (_confirmPasswordError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 12),
+                child: Text(
+                  _confirmPasswordError!,
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AppLanguage>(
               value: _language,

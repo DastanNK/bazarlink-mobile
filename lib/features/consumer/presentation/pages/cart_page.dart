@@ -138,6 +138,21 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _handleReorder(ConsumerOrder order, CartProvider cartProvider) async {
+    // Check if consumer is still linked to the supplier
+    if (order.supplierCode != null) {
+      final isLinked = await widget.repository.isLinkedToSupplier(order.supplierCode!);
+      if (!isLinked) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You are no longer linked to this supplier. Cannot reorder.'),
+            backgroundColor: Colors.orange[700],
+          ),
+        );
+        return;
+      }
+    }
+    
     // Fetch actual order items from repository
     try {
       final orderItems = await widget.repository.getOrderItems(order.id);
@@ -745,18 +760,19 @@ class _CartPageState extends State<CartPage> {
     if (_orderFilter == 'all') return orders;
     
     return orders.where((order) {
+      // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
       final status = order.status.toLowerCase().replaceAll(' ', '_');
       switch (_orderFilter) {
         case 'pending':
           return status == 'pending';
         case 'in_process':
-          return status == 'in_progress' || status == 'in_process' || status == 'in progress';
+          return status == 'in_progress' || status == 'accepted'; // accepted is also in progress
         case 'completed':
-          return status == 'completed' || status == 'delivered' || status == 'accepted';
+          return status == 'completed';
         case 'rejected':
           return status == 'rejected';
         case 'canceled':
-          return status == 'canceled' || status == 'cancelled';
+          return status == 'cancelled'; // Database uses 'cancelled' (double l)
         default:
           return true;
       }
@@ -881,15 +897,47 @@ class _CartPageState extends State<CartPage> {
     AppLocalizations l10n,
     ConsumerOrder order,
   ) {
-    // Fetch actual order items from repository
-    return FutureBuilder<List<OrderItem>>(
-      future: widget.repository.getOrderItems(order.id),
-      builder: (context, snapshot) {
-        final items = snapshot.hasData ? snapshot.data! : order.items;
+    // Check if consumer is still linked to the supplier
+    return FutureBuilder<bool>(
+      future: order.supplierCode != null 
+          ? widget.repository.isLinkedToSupplier(order.supplierCode!)
+          : Future.value(false),
+      builder: (context, linkSnapshot) {
+        // If not linked, show unlinked message
+        if (linkSnapshot.hasData && !linkSnapshot.data! && order.supplierCode != null) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'You are no longer linked to this supplier. Order details are not available.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.orange[900],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        // Fetch actual order items from repository
+        return FutureBuilder<List<OrderItem>>(
+          future: widget.repository.getOrderItems(order.id),
+          builder: (context, snapshot) {
+            final items = snapshot.hasData ? snapshot.data! : order.items;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Supplier info if available
             if (order.supplierCode != null || order.supplierId != null) ...[
               FutureBuilder<Map<String, String>>(
@@ -982,7 +1030,53 @@ class _CartPageState extends State<CartPage> {
                 ),
               ],
             ),
+            // Cancel / reject reason (if any)
+            const SizedBox(height: 8),
+            // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
+            if ((order.status.toLowerCase() == 'cancelled' || // Database uses 'cancelled' (double l)
+                    order.status.toLowerCase() == 'rejected') &&
+                order.notes != null &&
+                order.notes!.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: Colors.red[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cancel reason',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.red[900],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            order.notes!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.red[900],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
+        );
+          },
         );
       },
     );
@@ -1067,6 +1161,7 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
   }
 
   void _initializeDeliveryMethods() {
+    // Group items by supplier and determine available methods per supplier
     final grouped = <String, List<CartItem>>{};
     for (final item in widget.cartItems) {
       if (!grouped.containsKey(item.supplierCode)) {
@@ -1075,6 +1170,8 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
       grouped[item.supplierCode]!.add(item);
     }
 
+    // Get delivery methods available from suppliers in cart
+    // Since orders are created per supplier, show methods that are available from at least one supplier
     final methods = <String>{};
     for (final entry in grouped.entries) {
       final supplier = widget.supplierInfoMap[entry.key];
@@ -1088,6 +1185,39 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
     if (_availableMethods['all']!.isNotEmpty) {
       _selectedDeliveryMethod = _availableMethods['all']!.first;
     }
+  }
+
+  List<Widget> _buildSupplierDeliveryInfo(ThemeData theme, AppLocalizations l10n) {
+    // Group items by supplier
+    final grouped = <String, List<CartItem>>{};
+    for (final item in widget.cartItems) {
+      if (!grouped.containsKey(item.supplierCode)) {
+        grouped[item.supplierCode] = [];
+      }
+      grouped[item.supplierCode]!.add(item);
+    }
+
+    if (grouped.length == 1) {
+      // Single supplier - show their available methods
+      final supplierCode = grouped.keys.first;
+      final supplier = widget.supplierInfoMap[supplierCode];
+      if (supplier != null) {
+        final methods = <String>[];
+        if (supplier.deliveryAvailability) methods.add(l10n.delivery);
+        if (supplier.pickupAvailability) methods.add(l10n.pickup);
+        if (methods.isNotEmpty) {
+          return [
+            Text(
+              'Available from ${supplier.name}: ${methods.join(", ")}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ];
+        }
+      }
+    }
+    return [];
   }
 
   @override
@@ -1144,6 +1274,9 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 8),
+              // Show which suppliers support which methods
+              ..._buildSupplierDeliveryInfo(theme, l10n),
               const SizedBox(height: 12),
               ...(_availableMethods['all'] ?? []).map((method) {
                 final isDelivery = method == 'delivery';

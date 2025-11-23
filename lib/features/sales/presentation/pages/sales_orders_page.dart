@@ -17,6 +17,7 @@ class SalesOrdersPage extends StatefulWidget {
 class _SalesOrdersPageState extends State<SalesOrdersPage> {
   late Future<List<SalesOrder>> _future;
   String _statusFilter = 'all'; // all, pending, in_progress, completed, rejected, cancelled
+  final Set<int> _expandedOrders = {}; // Track which orders are expanded to show items
 
   @override
   void initState() {
@@ -34,19 +35,20 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
     if (_statusFilter == 'all') return orders;
     
     return orders.where((order) {
+      // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
       final status = order.status.toLowerCase().replaceAll(' ', '_');
       switch (_statusFilter) {
         case 'pending':
           return status == 'pending';
         case 'in_progress':
-          return status == 'in_progress' || status == 'inprogress' || status == 'accepted';
+          return status == 'in_progress' || status == 'accepted'; // accepted is also in progress
         case 'completed':
           return status == 'completed';
         case 'rejected':
           return status == 'rejected';
         case 'cancelled':
         case 'canceled':
-          return status == 'cancelled' || status == 'canceled';
+          return status == 'cancelled'; // Database uses 'cancelled' (double l)
         default:
           return true;
       }
@@ -189,20 +191,19 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
   }
 
   Color _getStatusColor(String status) {
+    // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
     final normalizedStatus = status.toLowerCase().replaceAll(' ', '_');
     switch (normalizedStatus) {
       case 'pending':
         return Colors.orange;
       case 'accepted':
       case 'in_progress':
-      case 'inprogress':
         return Colors.blue;
       case 'completed':
         return Colors.green;
       case 'rejected':
         return Colors.red;
-      case 'canceled':
-      case 'cancelled':
+      case 'cancelled': // Database uses 'cancelled' (double l)
         return Colors.red;
       default:
         return Colors.grey;
@@ -284,7 +285,8 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                         itemCount: filteredList.length,
                         itemBuilder: (_, i) {
                           final o = filteredList[i];
-              final isPending = o.status == 'pending' || o.status == 'Pending';
+              // Database enum values: pending, accepted, rejected, in_progress, completed, cancelled
+              final isPending = o.status.toLowerCase() == 'pending';
               final statusColor = _getStatusColor(o.status);
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -357,8 +359,149 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if (o.items.isNotEmpty)
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  if (_expandedOrders.contains(o.id)) {
+                                    _expandedOrders.remove(o.id);
+                                  } else {
+                                    _expandedOrders.add(o.id);
+                                  }
+                                });
+                              },
+                              icon: Icon(
+                                _expandedOrders.contains(o.id) ? Icons.expand_less : Icons.expand_more,
+                                size: 18,
+                              ),
+                              label: Text(
+                                '${o.items.length} ${l10n.items}',
+                                style: theme.textTheme.labelSmall,
+                              ),
+                            ),
                         ],
                       ),
+                      // Order items (expandable)
+                      if (_expandedOrders.contains(o.id) && o.items.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.orderDetails,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...o.items.map((item) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.productName ?? 'Product #${item.productId}',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${item.quantity.toStringAsFixed(2)} × ${item.unitPrice.toStringAsFixed(0)} ${o.currency}',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '${item.totalPrice.toStringAsFixed(0)} ${o.currency}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 8),
+                      // Delivery details
+                      if (o.deliveryMethod != null || o.deliveryAddress != null || o.deliveryDate != null) ...[
+                        const SizedBox(height: 4),
+                        if (o.deliveryMethod != null) ...[
+                          Row(
+                            children: [
+                              Icon(Icons.local_shipping, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${l10n.deliveryMethod}: ${o.deliveryMethod}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.deliveryAddress != null && o.deliveryAddress!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.location_on, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  o.deliveryAddress!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.deliveryDate != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.event, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${l10n.deliveryDate}: ${o.deliveryDate!.toLocal().toString().split(".").first}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (o.notes != null && o.notes!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.note, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  o.notes!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                       if (isPending) ...[
                         const SizedBox(height: 12),
                         Row(
@@ -388,7 +531,7 @@ class _SalesOrdersPageState extends State<SalesOrdersPage> {
                             ),
                           ],
                         ),
-                      ] else if (o.status == 'in_progress' || o.status == 'in progress' || o.status == 'accepted') ...[
+                      ] else if (o.status.toLowerCase() == 'in_progress' || o.status.toLowerCase() == 'accepted') ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [

@@ -6,6 +6,9 @@ class AppTextField extends StatelessWidget {
   final String label;
   final bool obscureText;
   final TextInputType keyboardType;
+  final ValueChanged<String>? onChanged;
+  final String? autofillHints;
+  final String? helperText;
 
   const AppTextField({
     super.key,
@@ -13,6 +16,9 @@ class AppTextField extends StatelessWidget {
     required this.label,
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
+    this.onChanged,
+    this.autofillHints,
+    this.helperText,
   });
 
   @override
@@ -21,9 +27,12 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      onChanged: onChanged,
+      autofillHints: autofillHints != null ? [autofillHints!] : null,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
+        helperText: helperText,
       ),
     );
   }
