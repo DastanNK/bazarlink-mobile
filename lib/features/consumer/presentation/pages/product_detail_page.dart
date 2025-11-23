@@ -507,9 +507,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     const SizedBox(height: 16),
                                     FilledButton.icon(
                                       onPressed: () {
-                                        Navigator.of(context).pop();
+                                        // Use callback if provided, otherwise just pop
                                         if (widget.onNavigateToCart != null) {
+                                          Navigator.of(context).pop();
                                           widget.onNavigateToCart!();
+                                        } else {
+                                          // Just pop back - user can navigate to cart manually
+                                          Navigator.of(context).pop();
                                         }
                                       },
                                       icon: const Icon(Icons.shopping_cart),

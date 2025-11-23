@@ -784,9 +784,12 @@ class ApiConsumerRepository implements ConsumerRepository {
       stockQuantity: int.tryParse(productJson['stock_quantity'].toString()) ?? 0,
       unit: productJson['unit'] as String? ?? 'piece',
       minOrderQuantity: int.tryParse(productJson['min_order_quantity'].toString()) ?? 1,
-      deliveryAvailability: productJson['delivery_available'] as bool? ?? false,
-      pickupAvailability: productJson['pickup_available'] as bool? ?? false,
-      leadTimeDays: productJson['lead_time_days'] as int? ?? 0,
+      // Delivery options come from supplier, not product
+      deliveryAvailability: supplierJson['delivery_available'] as bool? ?? false,
+      pickupAvailability: supplierJson['pickup_available'] as bool? ?? false,
+      // Lead time can come from product if specified, otherwise from supplier
+      leadTimeDays: (productJson['lead_time_days'] as int?) ?? 
+                    (supplierJson['lead_time_days'] as int?) ?? 0,
     );
   }
 

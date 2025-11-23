@@ -1161,6 +1161,7 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
   }
 
   void _initializeDeliveryMethods() {
+    // Group items by supplier and determine available methods per supplier
     final grouped = <String, List<CartItem>>{};
     for (final item in widget.cartItems) {
       if (!grouped.containsKey(item.supplierCode)) {
@@ -1169,6 +1170,8 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
       grouped[item.supplierCode]!.add(item);
     }
 
+    // Get delivery methods available from suppliers in cart
+    // Since orders are created per supplier, show methods that are available from at least one supplier
     final methods = <String>{};
     for (final entry in grouped.entries) {
       final supplier = widget.supplierInfoMap[entry.key];
@@ -1182,6 +1185,39 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
     if (_availableMethods['all']!.isNotEmpty) {
       _selectedDeliveryMethod = _availableMethods['all']!.first;
     }
+  }
+
+  List<Widget> _buildSupplierDeliveryInfo(ThemeData theme, AppLocalizations l10n) {
+    // Group items by supplier
+    final grouped = <String, List<CartItem>>{};
+    for (final item in widget.cartItems) {
+      if (!grouped.containsKey(item.supplierCode)) {
+        grouped[item.supplierCode] = [];
+      }
+      grouped[item.supplierCode]!.add(item);
+    }
+
+    if (grouped.length == 1) {
+      // Single supplier - show their available methods
+      final supplierCode = grouped.keys.first;
+      final supplier = widget.supplierInfoMap[supplierCode];
+      if (supplier != null) {
+        final methods = <String>[];
+        if (supplier.deliveryAvailability) methods.add(l10n.delivery);
+        if (supplier.pickupAvailability) methods.add(l10n.pickup);
+        if (methods.isNotEmpty) {
+          return [
+            Text(
+              'Available from ${supplier.name}: ${methods.join(", ")}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ];
+        }
+      }
+    }
+    return [];
   }
 
   @override
@@ -1238,6 +1274,9 @@ class _OrderPlacementModalState extends State<_OrderPlacementModal> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 8),
+              // Show which suppliers support which methods
+              ..._buildSupplierDeliveryInfo(theme, l10n),
               const SizedBox(height: 12),
               ...(_availableMethods['all'] ?? []).map((method) {
                 final isDelivery = method == 'delivery';

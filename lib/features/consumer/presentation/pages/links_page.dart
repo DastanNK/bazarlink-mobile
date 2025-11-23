@@ -391,13 +391,29 @@ class _LinksPageState extends State<LinksPage> {
               return supplier;
             }).toList();
 
+            // Apply search filter
+            final filteredSuppliers = _searchQuery.isEmpty
+                ? linkedSuppliers
+                : linkedSuppliers.where((s) => 
+                    s.name.toLowerCase().contains(_searchQuery.toLowerCase())
+                  ).toList();
+
               return RefreshIndicator(
                 onRefresh: _refresh,
-                child: ListView.builder(
+                child: filteredSuppliers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No suppliers found',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: linkedSuppliers.length,
+                itemCount: filteredSuppliers.length,
                 itemBuilder: (context, index) {
-                  return _buildSupplierCard(context, theme, l10n, linkedSuppliers[index]);
+                  return _buildSupplierCard(context, theme, l10n, filteredSuppliers[index]);
                 },
               ),
             );
@@ -438,13 +454,29 @@ class _LinksPageState extends State<LinksPage> {
         }
 
         final suppliers = snapshot.data!;
+        // Apply search filter
+        final filteredSuppliers = _searchQuery.isEmpty
+            ? suppliers
+            : suppliers.where((s) => 
+                s.name.toLowerCase().contains(_searchQuery.toLowerCase())
+              ).toList();
+        
         return RefreshIndicator(
           onRefresh: _refreshSuppliers,
-          child: ListView.builder(
+          child: filteredSuppliers.isEmpty
+              ? Center(
+                  child: Text(
+                    'No suppliers found',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                )
+              : ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: suppliers.length,
+            itemCount: filteredSuppliers.length,
             itemBuilder: (context, index) {
-              return _buildSupplierCard(context, theme, l10n, suppliers[index]);
+              return _buildSupplierCard(context, theme, l10n, filteredSuppliers[index]);
             },
           ),
         );
@@ -745,7 +777,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
       _searchQuery = '';
       _searchController.clear();
       _searchAllProducts = false;
-      _refreshProducts();
+      // No need to refresh products - filtering is done in UI
     });
   }
 
@@ -1275,7 +1307,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                             _selectedCategory = null;
                             _searchQuery = '';
                             _searchController.clear();
-                            _refreshProducts();
+                            // No need to refresh products - filtering is done in UI
                           });
                         },
                         selectedColor: Colors.green[100],
@@ -1299,7 +1331,7 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                           }
                           _searchQuery = '';
                           _searchController.clear();
-                          _refreshProducts();
+                          // No need to refresh products - filtering is done in UI
                         });
                       },
                       selectedColor: Colors.green[100],
@@ -1526,6 +1558,11 @@ class _BusinessDetailsPageState extends State<BusinessDetailsPage> with SingleTi
                 product: prod,
                 repository: widget.repository,
                 supplierCode: widget.supplier.code,
+                onNavigateToCart: () {
+                  // Navigate to cart page
+                  // Pop back to ConsumerHomePage (cart is first tab at index 0)
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
               ),
             ),
           );

@@ -102,9 +102,51 @@ class ApiSalesRepository implements SalesRepository {
       }
     }
     
+    // Get product IDs from all order items and fetch product names
+    final productIds = <int>{};
+    for (final order in data) {
+      final orderData = order as Map<String, dynamic>;
+      final items = orderData['items'] as List<dynamic>? ?? [];
+      for (final item in items) {
+        final itemData = item as Map<String, dynamic>;
+        final productId = itemData['product_id'] as int?;
+        if (productId != null) {
+          productIds.add(productId);
+        }
+      }
+    }
+    
+    final productNames = <int, String>{};
+    for (final productId in productIds) {
+      try {
+        final productResp = await _client.get('/products/$productId');
+        if (productResp.statusCode == 200) {
+          final productJson = jsonDecode(productResp.body) as Map<String, dynamic>;
+          final name = productJson['name'] as String?;
+          if (name != null) {
+            productNames[productId] = name;
+          }
+        }
+      } catch (e) {
+        // If fetching fails, use default name
+      }
+    }
+    
     return data.map((e) {
       final orderData = e as Map<String, dynamic>;
       final consumerId = orderData['consumer_id'] as int?;
+      // Update order items with product names
+      final items = orderData['items'] as List<dynamic>? ?? [];
+      final itemsWithNames = items.map((item) {
+        final itemData = item as Map<String, dynamic>;
+        final productId = itemData['product_id'] as int?;
+        if (productId != null && productNames.containsKey(productId)) {
+          itemData['product_name'] = productNames[productId];
+        }
+        return itemData;
+      }).toList();
+      orderData['items'] = itemsWithNames;
+      
       return SalesOrder.fromJson(orderData, consumerName: consumerId != null ? consumerNames[consumerId] : null);
     }).toList();
   }
@@ -157,7 +199,37 @@ class ApiSalesRepository implements SalesRepository {
       throw Exception('Failed to load messages: ${resp.statusCode} ${resp.body}');
     }
     final data = jsonDecode(resp.body) as List<dynamic>;
-    return data.map((e) => SalesMessage.fromJson(e as Map<String, dynamic>)).toList();
+    
+    // Get current user to determine sender role
+    final user = await _ensureUser();
+    final currentUserId = user.id;
+    
+    return data.map((e) {
+      final json = e as Map<String, dynamic>;
+      final senderId = json['sender_id'] as int?;
+      final isFromCurrentUser = senderId == currentUserId;
+      
+      // Determine sender role
+      String? senderRole;
+      if (json['sender_role'] != null) {
+        final role = json['sender_role'] as String;
+        if (role == 'manager' || role == 'MANAGER') {
+          senderRole = 'manager';
+        } else if (role == 'sales' || role == 'SALES_REPRESENTATIVE') {
+          senderRole = 'sales';
+        }
+      } else if (!isFromCurrentUser && senderId != null) {
+        // If not from current user and no explicit role, try to determine from user info
+        // For now, default to 'sales' if not explicitly manager
+        senderRole = 'sales';
+      }
+      
+      // Add sender_role to the JSON before parsing
+      final messageJson = Map<String, dynamic>.from(json);
+      messageJson['sender_role'] = senderRole;
+      
+      return SalesMessage.fromJson(messageJson);
+    }).toList();
   }
 
   @override
@@ -246,9 +318,9 @@ class ApiSalesRepository implements SalesRepository {
 
   @override
   Future<void> rejectLink(int linkId) async {
-    // Update link status to "rejected"
+    // Update link status to "removed" (not "rejected" - links use REMOVED status)
     final body = {
-      'status': 'rejected',
+      'status': 'removed',
     };
     final resp = await _client.put('/links/$linkId', body: body);
     if (resp.statusCode != 200) {

@@ -432,15 +432,44 @@ class _ChatsPageState extends State<ChatsPage> {
               ],
             ),
           ),
-        // Sender role badge
+        // Sender role badge - show at top of message bubble for manager/sales
         if (senderRole != null && !isMe)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4, left: 8),
-            child: Text(
-              senderRole == 'manager' ? l10n.manager : l10n.salesRepresentative,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                fontWeight: FontWeight.bold,
+            padding: EdgeInsets.only(
+              bottom: 4,
+              left: isMe ? 0 : 8,
+              right: isMe ? 8 : 0,
+            ),
+            child: Align(
+              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: senderRole == 'manager' ? Colors.purple[50] : Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: senderRole == 'manager' ? Colors.purple[300]! : Colors.blue[300]!,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      senderRole == 'manager' ? Icons.badge : Icons.person,
+                      size: 14,
+                      color: senderRole == 'manager' ? Colors.purple[700] : Colors.blue[700],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      senderRole == 'manager' ? l10n.manager : l10n.salesRepresentative,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: senderRole == 'manager' ? Colors.purple[700] : Colors.blue[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
